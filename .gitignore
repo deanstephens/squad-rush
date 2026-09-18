@@ -107,3 +107,8 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# Local screenshots from live-editor checks
+/Captures/
+/Assets/Captures/
+/Assets/Captures.meta

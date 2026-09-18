@@ -325,20 +325,20 @@ namespace SquadRush.EditorTools
             // ---- Menu
             var menu = Panel(root, "Menu", new Color(0.05f, 0.07f, 0.12f, 0.88f));
             ui.menuPanel = menu;
-            Text(menu.transform, "Title", "SQUAD RUSH", 128f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -340f), new Vector2(1040f, 200f), Gold, FontStyles.Bold);
-            Text(menu.transform, "Sub", "Drag to steer.  Shoot everything.\nBlue gates help.  Red gates hurt.", 42f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -520f), new Vector2(1000f, 130f), new Color(0.8f, 0.82f, 0.9f));
-            ui.bestText = Text(menu.transform, "Best", "BEST 0 m", 50f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -660f), new Vector2(900f, 80f), Color.white, FontStyles.Bold);
-            ui.bankText = Text(menu.transform, "Bank", "$0", 50f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -740f), new Vector2(900f, 80f), Gold, FontStyles.Bold);
+            Text(menu.transform, "Title", "SQUAD RUSH", 128f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -300f), new Vector2(1040f, 200f), Gold, FontStyles.Bold);
+            Text(menu.transform, "Sub", "Drag to steer.  Shoot everything.\nBlue gates help.  Red gates hurt.", 42f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -470f), new Vector2(1000f, 130f), new Color(0.8f, 0.82f, 0.9f));
+            ui.bestText = Text(menu.transform, "Best", "BEST 0 m", 50f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -600f), new Vector2(900f, 80f), Color.white, FontStyles.Bold);
+            ui.bankText = Text(menu.transform, "Bank", "$0", 50f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -670f), new Vector2(900f, 80f), Gold, FontStyles.Bold);
 
-            Text(menu.transform, "UpgradesLabel", "UPGRADES", 44f, TextAlignmentOptions.Center, new Vector2(0.5f, 0.5f), new Vector2(0f, 250f), new Vector2(900f, 70f), new Color(0.8f, 0.82f, 0.9f), FontStyles.Bold);
+            Text(menu.transform, "UpgradesLabel", "UPGRADES", 44f, TextAlignmentOptions.Center, new Vector2(0.5f, 0.5f), new Vector2(0f, 190f), new Vector2(900f, 70f), new Color(0.8f, 0.82f, 0.9f), FontStyles.Bold);
             ui.upgradeButtons = new Button[3];
             ui.upgradeLabels = new TMP_Text[3];
             for (int i = 0; i < 3; i++)
             {
-                ui.upgradeButtons[i] = Btn(menu.transform, "Upgrade" + i, "Upgrade", new Vector2(0.5f, 0.5f), new Vector2(0f, 130f - i * 170f), new Vector2(880f, 150f), Blue, 44f, out var label);
+                ui.upgradeButtons[i] = Btn(menu.transform, "Upgrade" + i, "Upgrade", new Vector2(0.5f, 0.5f), new Vector2(0f, 60f - i * 170f), new Vector2(880f, 150f), Blue, 44f, out var label);
                 ui.upgradeLabels[i] = label;
             }
-            ui.playButton = Btn(menu.transform, "Play", "PLAY", new Vector2(0.5f, 0f), new Vector2(0f, 270f), new Vector2(760f, 190f), Green, 92f, out _);
+            ui.playButton = Btn(menu.transform, "Play", "PLAY", new Vector2(0.5f, 0f), new Vector2(0f, 230f), new Vector2(760f, 190f), Green, 92f, out _);
 
             // ---- Game over
             var over = Panel(root, "GameOver", new Color(0.16f, 0.03f, 0.06f, 0.9f));
