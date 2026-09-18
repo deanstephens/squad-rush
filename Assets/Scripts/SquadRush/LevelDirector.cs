@@ -24,6 +24,8 @@ namespace SquadRush
         public float baseGruntHealth = 10f;
         public float healthPerMeter = 0.012f;
         public float healthPerChunk = 0.03f;
+        [Tooltip("Health of a lane-spanning wall, as a multiple of a grunt's health.")]
+        public float fullWallHealthScale = 2.2f;
 
         [Header("Colors")]
         public Color gruntColor = new Color(0.95f, 0.45f, 0.3f);
@@ -84,13 +86,15 @@ namespace SquadRush
             if (chunkIndex % bossEvery == 0) { SpawnBoss(z); return; }
             if (chunkIndex % gateEvery == 0) { SpawnGatePair(z); return; }
 
-            int pattern = Random.Range(0, 5);
+            int pattern = Random.Range(0, 7);
             switch (pattern)
             {
                 case 0: SpawnSingle(z, 1f); break;
                 case 1: SpawnSingle(z, 1f); SpawnSingle(z + 3f, 1f); break;
                 case 2: SpawnWall(z); break;
                 case 3: SpawnTank(z); break;
+                case 4: SpawnFullWall(z); break;
+                case 5: SpawnFullWall(z); break;
                 default: SpawnSingle(z, 1.4f); break;
             }
         }
@@ -114,6 +118,13 @@ namespace SquadRush
                 float hp = baseGruntHealth * 0.9f * HealthMult;
                 Spawn(new Vector3(x, 0f, z), hp, new Vector3(1.6f, 1f, 1f), wallColor, false);
             }
+        }
+
+        /// <summary>A barrier spanning the entire lane: there is no way around it, only through it.</summary>
+        void SpawnFullWall(float z)
+        {
+            float hp = baseGruntHealth * fullWallHealthScale * HealthMult;
+            Spawn(new Vector3(0f, 0f, z), hp, new Vector3(laneHalfWidth * 2f + 1.2f, 1.2f, 1f), wallColor, false);
         }
 
         void SpawnTank(float z)

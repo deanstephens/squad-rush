@@ -33,8 +33,11 @@ namespace SquadRush
         public int shields = 0;
 
         [Header("Input")]
-        [Tooltip("World units moved per pixel of drag.")]
-        public float dragSensitivity = 0.012f;
+        [Tooltip("Dragging this fraction of the screen width moves the squad across the whole lane.")]
+        public float dragScreenFraction = 0.6f;
+        [Tooltip("Largest pointer jump (as a fraction of screen width) accepted in one frame; bigger jumps are ignored.")]
+        public float maxDragStepFraction = 0.25f;
+        public float maxMoveSpeed = 30f;
         public float projectileLifetime = 3f;
 
         public event Action Changed;
@@ -45,7 +48,8 @@ namespace SquadRush
         BoxCollider hitbox;
         float fireTimer;
         float targetX;
-        int visibleUnitsThisVolley;
+        bool dragging;
+        float lastPointerX;
 
         void Awake()
         {
@@ -146,10 +150,35 @@ namespace SquadRush
         void HandleInput()
         {
             float dt = Time.deltaTime;
+            moveSpeed = Mathf.Min(moveSpeed, maxMoveSpeed);
 
+            // Position-based drag: the Input System's per-frame delta can contain the jump from the
+            // previous touch's position on the first frame of a new touch, which used to fling the
+            // squad to a lane edge. Tracking positions ourselves (and ignoring the press frame) avoids that.
             var pointer = Pointer.current;
             if (pointer != null && pointer.press.isPressed)
-                targetX += pointer.delta.ReadValue().x * dragSensitivity;
+            {
+                float x = pointer.position.ReadValue().x;
+                if (!dragging || pointer.press.wasPressedThisFrame)
+                {
+                    dragging = true;
+                }
+                else
+                {
+                    float dx = x - lastPointerX;
+                    float maxStep = Screen.width * maxDragStepFraction;
+                    if (Mathf.Abs(dx) <= maxStep)
+                    {
+                        float worldPerPixel = (laneHalfWidth * 2f) / Mathf.Max(1f, Screen.width * dragScreenFraction);
+                        targetX += dx * worldPerPixel;
+                    }
+                }
+                lastPointerX = x;
+            }
+            else
+            {
+                dragging = false;
+            }
 
             var kb = Keyboard.current;
             if (kb != null)

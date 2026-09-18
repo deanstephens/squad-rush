@@ -31,6 +31,7 @@ namespace SquadRush
         public float HalfWidth { get; private set; } = 1.3f;
 
         float shotStep;
+        float shotCap;
         Material mat;
         bool collected;
 
@@ -49,6 +50,13 @@ namespace SquadRush
                 PowerUpType.MultiplyUnits => 0.02f,
                 _ => 0.5f,
             };
+            // Shooting can at most double a good gate's bonus, or neutralise a bad one. Without a cap,
+            // a big squad pumps every gate into the hundreds and the run snowballs out of control.
+            shotCap = type switch
+            {
+                PowerUpType.MultiplyUnits => value >= 1f ? 1f + (value - 1f) * 2f : 1f,
+                _ => value > 0f ? value * 2f : 0f,
+            };
             mat = panel.material;
             Refresh();
         }
@@ -56,8 +64,8 @@ namespace SquadRush
         /// <summary>Bullets that hit the gate nudge its value in the player's favour.</summary>
         public void OnShot()
         {
-            if (collected) return;
-            Value += shotStep;
+            if (collected || Value >= shotCap) return;
+            Value = Mathf.Min(Value + shotStep, shotCap);
             Refresh();
         }
 
