@@ -21,6 +21,15 @@ namespace SquadRush.EditorTools
             PlayerSettings.WebGL.threadsSupport = false;
             PlayerSettings.runInBackground = true;
             PlayerSettings.SetIl2CppCompilerConfiguration(UnityEditor.Build.NamedBuildTarget.WebGL, Il2CppCompilerConfiguration.Release);
+
+            // Web gets only the Mobile quality level (Forward renderer). Shipping the Forward+ "PC" level too
+            // made URP's shader prefilter drop the Forward Lit variants, leaving every lit object invisible.
+            string[] names = QualitySettings.names;
+            for (int i = 0; i < names.Length; i++)
+            {
+                if (names[i] == "Mobile") QualitySettings.TryIncludePlatformAt("WebGL", i, out _);
+                else QualitySettings.TryExcludePlatformAt("WebGL", i, out _);
+            }
             AssetDatabase.SaveAssets();
         }
 
