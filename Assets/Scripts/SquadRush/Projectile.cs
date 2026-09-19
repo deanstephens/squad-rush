@@ -10,6 +10,7 @@ namespace SquadRush
     /// </summary>
     public class Projectile : MonoBehaviour
     {
+        Vector3 dir = Vector3.forward;
         float speed;
         float damage;
         float life;
@@ -17,13 +18,14 @@ namespace SquadRush
         float radius = 0.11f;
         Action<Projectile> onFinished;
 
-        readonly List<Obstacle> alreadyHit = new List<Obstacle>();
+        readonly List<TreadmillEnemy> alreadyHit = new List<TreadmillEnemy>();
         static readonly RaycastHit[] Hits = new RaycastHit[24];
         static readonly HitDistanceComparer Comparer = new HitDistanceComparer();
 
-        public void Launch(Vector3 position, float speed, float damage, int pierce, float scale, float life, Action<Projectile> onFinished)
+        public void Launch(Vector3 position, Vector3 direction, float speed, float damage, int pierce, float scale, float life, Action<Projectile> onFinished)
         {
             transform.position = position;
+            dir = direction.sqrMagnitude > 0.001f ? direction.normalized : Vector3.forward;
             transform.localScale = Vector3.one * 0.22f * scale;
             radius = 0.11f * scale;
             this.speed = speed;
@@ -43,7 +45,7 @@ namespace SquadRush
             float step = speed * dt;
             Vector3 from = transform.position;
 
-            int n = Physics.SphereCastNonAlloc(from, radius, Vector3.forward, Hits, step, ~0, QueryTriggerInteraction.Collide);
+            int n = Physics.SphereCastNonAlloc(from, radius, dir, Hits, step, ~0, QueryTriggerInteraction.Collide);
             if (n > 0)
             {
                 Array.Sort(Hits, 0, n, Comparer);
@@ -59,11 +61,11 @@ namespace SquadRush
                         return;
                     }
 
-                    var ob = col.GetComponentInParent<Obstacle>();
-                    if (ob == null || alreadyHit.Contains(ob)) continue;
+                    var enemy = col.GetComponentInParent<TreadmillEnemy>();
+                    if (enemy == null || alreadyHit.Contains(enemy)) continue;
 
-                    alreadyHit.Add(ob);
-                    ob.TakeDamage(damage);
+                    alreadyHit.Add(enemy);
+                    enemy.TakeDamage(damage);
                     if (pierce <= 0)
                     {
                         Finish();
@@ -73,7 +75,7 @@ namespace SquadRush
                 }
             }
 
-            transform.position = from + Vector3.forward * step;
+            transform.position = from + dir * step;
             life -= dt;
             if (life <= 0f) Finish();
         }

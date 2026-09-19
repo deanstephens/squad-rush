@@ -3,37 +3,39 @@ using UnityEngine;
 namespace SquadRush
 {
     /// <summary>
-    /// Procedurally streams obstacle patterns, power-up gate pairs and bosses onto the treadmill.
-    /// Difficulty scales with distance travelled.
+    /// Runs one treadmill level: streams enemy hordes and gate pairs for a set distance,
+    /// then sends in the boss. Difficulty scales with the level number and distance into the level.
     /// </summary>
     public class LevelDirector : MonoBehaviour
     {
         [Header("Prefabs")]
-        public Obstacle obstaclePrefab;
+        public TreadmillEnemy enemyPrefab;
         public PowerUpGate gatePrefab;
         public Material debrisMaterial;
 
         [Header("Layout")]
         public float spawnZ = 55f;
-        public float chunkLength = 9f;
+        public float chunkLength = 13f;
         public float laneHalfWidth = 2.6f;
         public int gateEvery = 3;
-        public int bossEvery = 9;
+
+        [Header("Level length")]
+        public float baseLevelLength = 220f;
+        public float lengthPerLevel = 40f;
+        public float maxLevelLength = 600f;
 
         [Header("Difficulty")]
-        public float baseGruntHealth = 10f;
-        public float healthPerMeter = 0.012f;
-        public float healthPerChunk = 0.03f;
-        [Tooltip("Health of a lane-spanning wall, as a multiple of a grunt's health.")]
-        public float fullWallHealthScale = 2.2f;
-        [Tooltip("Scrap dropped by a boss.")]
-        public int bossScrap = 15;
+        [Tooltip("Enemy HP multiplier added per level above 1.")]
+        public float hpPerLevel = 0.22f;
+        [Tooltip("Enemy HP multiplier added per metre into the level.")]
+        public float hpPerMeter = 0.0008f;
+        public float bossHpPerLevel = 0.45f;
+        [Tooltip("Units the boss bites off per attack, plus this per level.")]
+        public float bossBitePerLevel = 0.5f;
 
-        [Header("Colors")]
-        public Color gruntColor = new Color(0.95f, 0.45f, 0.3f);
-        public Color wallColor = new Color(0.9f, 0.3f, 0.35f);
-        public Color tankColor = new Color(0.6f, 0.25f, 0.6f);
-        public Color bossColor = new Color(0.15f, 0.15f, 0.2f);
+        public int Level { get; private set; } = 1;
+        public float LevelLength { get; private set; }
+        public bool BossSpawned { get; private set; }
 
         Transform root;
         float accumulator;
@@ -46,22 +48,37 @@ namespace SquadRush
             root = new GameObject("Lane").transform;
         }
 
-        public void BeginRun()
+        public void ClearLane()
         {
             foreach (Transform t in root) Destroy(t.gameObject);
+        }
+
+        public void BeginLevel(int level)
+        {
+            ClearLane();
+            Level = Mathf.Max(1, level);
+            LevelLength = Mathf.Min(maxLevelLength, baseLevelLength + lengthPerLevel * (Level - 1));
             chunkIndex = 0;
             accumulator = 0f;
+            BossSpawned = false;
             running = true;
 
-            // A gentle opener: one gate pair, then a couple of easy chunks already on the belt.
             SpawnGatePair(spawnZ * 0.45f);
-            SpawnSingle(spawnZ * 0.75f, 0.6f);
+            SpawnPack(spawnZ * 0.85f, 2, TreadmillEnemyLibrary.Grunt);
         }
 
         void Update()
         {
             var gm = GameManager.Instance;
             if (!running || gm == null || gm.State != GameState.Playing) return;
+
+            if (BossSpawned) return;
+
+            if (gm.LevelDistance >= LevelLength)
+            {
+                SpawnBoss();
+                return;
+            }
 
             accumulator += Treadmill.Delta;
             while (accumulator >= chunkLength)
@@ -71,12 +88,12 @@ namespace SquadRush
             }
         }
 
-        float HealthMult
+        float HpMult
         {
             get
             {
-                float dist = GameManager.Instance != null ? GameManager.Instance.Distance : 0f;
-                return 1f + dist * healthPerMeter + chunkIndex * healthPerChunk;
+                float dist = GameManager.Instance != null ? GameManager.Instance.LevelDistance : 0f;
+                return 1f + (Level - 1) * hpPerLevel + dist * hpPerMeter;
             }
         }
 
@@ -84,71 +101,65 @@ namespace SquadRush
         {
             chunkIndex++;
             float z = spawnZ + Random.Range(0f, 2f);
-
-            if (chunkIndex % bossEvery == 0) { SpawnBoss(z); return; }
             if (chunkIndex % gateEvery == 0) { SpawnGatePair(z); return; }
 
-            int pattern = Random.Range(0, 7);
+            // Wave size grows slowly with level; the nastier patterns only appear from level 2 and 3.
+            int extra = (Level - 1) / 2;
+            int patterns = Level >= 3 ? 7 : Level >= 2 ? 6 : 4;
+            int pattern = Random.Range(0, patterns);
             switch (pattern)
             {
-                case 0: SpawnSingle(z, 1f); break;
-                case 1: SpawnSingle(z, 1f); SpawnSingle(z + 3f, 1f); break;
-                case 2: SpawnWall(z); break;
-                case 3: SpawnTank(z); break;
-                case 4: SpawnFullWall(z); break;
-                case 5: SpawnFullWall(z); break;
-                default: SpawnSingle(z, 1.4f); break;
+                case 0: SpawnPack(z, 2 + extra, TreadmillEnemyLibrary.Grunt); break;
+                case 1: SpawnPack(z, 3 + extra, TreadmillEnemyLibrary.Grunt); break;
+                case 2: SpawnPack(z, 2 + extra, TreadmillEnemyLibrary.Runner); break;
+                case 3: SpawnPack(z, 2 + extra, TreadmillEnemyLibrary.Grunt); SpawnPack(z + 5f, 2 + extra, TreadmillEnemyLibrary.Grunt); break;
+                case 4: SpawnLine(z, 4 + Mathf.Min(extra, 3), TreadmillEnemyLibrary.Grunt); break;
+                case 5: SpawnOne(z, TreadmillEnemyLibrary.Tank); SpawnPack(z + 4f, 2 + extra, TreadmillEnemyLibrary.Grunt); break;
+                default: SpawnLine(z, 4, TreadmillEnemyLibrary.Runner); SpawnOne(z + 6f, TreadmillEnemyLibrary.Tank); break;
             }
         }
 
-        float RandomLaneX() => Random.Range(-1, 2) * (laneHalfWidth * 0.65f);
+        float RandomLaneX() => Random.Range(-laneHalfWidth * 0.75f, laneHalfWidth * 0.75f);
 
-        void SpawnSingle(float z, float hpScale)
+        void SpawnOne(float z, TreadmillEnemyDef def)
         {
-            float hp = baseGruntHealth * hpScale * HealthMult;
-            Spawn(new Vector3(RandomLaneX(), 0f, z), hp, Vector3.one, gruntColor, false);
+            Spawn(new Vector3(RandomLaneX(), 0f, z), def, HpMult);
         }
 
-        void SpawnWall(float z)
+        /// <summary>A loose cluster around a random lane position.</summary>
+        void SpawnPack(float z, int count, TreadmillEnemyDef def)
         {
-            // Three blocks across; one is left out so the wall can be dodged as well as shot.
-            int gap = Random.Range(0, 3);
-            for (int i = 0; i < 3; i++)
+            float cx = RandomLaneX();
+            for (int i = 0; i < count; i++)
             {
-                if (i == gap) continue;
-                float x = (i - 1) * laneHalfWidth * 0.66f;
-                float hp = baseGruntHealth * 0.9f * HealthMult;
-                Spawn(new Vector3(x, 0f, z), hp, new Vector3(1.6f, 1f, 1f), wallColor, false);
+                Vector2 o = Random.insideUnitCircle * 1.3f;
+                float x = Mathf.Clamp(cx + o.x, -laneHalfWidth, laneHalfWidth);
+                Spawn(new Vector3(x, 0f, z + o.y * 1.5f), def, HpMult);
             }
         }
 
-        /// <summary>A barrier spanning the entire lane: there is no way around it, only through it.</summary>
-        void SpawnFullWall(float z)
+        /// <summary>A row across the whole lane; there is no way around it, only through it.</summary>
+        void SpawnLine(float z, int count, TreadmillEnemyDef def)
         {
-            float hp = baseGruntHealth * fullWallHealthScale * HealthMult;
-            Spawn(new Vector3(0f, 0f, z), hp, new Vector3(laneHalfWidth * 2f + 1.2f, 1.2f, 1f), wallColor, false);
+            for (int i = 0; i < count; i++)
+            {
+                float x = count == 1 ? 0f : Mathf.Lerp(-laneHalfWidth * 0.9f, laneHalfWidth * 0.9f, i / (float)(count - 1));
+                Spawn(new Vector3(x, 0f, z + Random.Range(-0.3f, 0.3f)), def, HpMult);
+            }
         }
 
-        void SpawnTank(float z)
+        void SpawnBoss()
         {
-            float hp = baseGruntHealth * 4.5f * HealthMult;
-            Spawn(new Vector3(RandomLaneX(), 0f, z), hp, Vector3.one * 1.7f, tankColor, false);
+            BossSpawned = true;
+            float hpMult = 1f + (Level - 1) * bossHpPerLevel;
+            float bite = TreadmillEnemyLibrary.Boss.ContactUnits + bossBitePerLevel * (Level - 1);
+            Spawn(new Vector3(0f, 0f, spawnZ), TreadmillEnemyLibrary.Boss, hpMult, bite);
         }
 
-        void SpawnBoss(float z)
+        void Spawn(Vector3 pos, TreadmillEnemyDef def, float hpMult, float contactOverride = -1f)
         {
-            float hp = baseGruntHealth * 18f * HealthMult;
-            Spawn(new Vector3(0f, 0f, z), hp, new Vector3(3f, 2.6f, 2.6f), bossColor, true);
-        }
-
-        void Spawn(Vector3 pos, float hp, Vector3 size, Color color, bool boss)
-        {
-            var ob = Instantiate(obstaclePrefab, pos, Quaternion.identity, root);
-            int coins = Mathf.Max(1, Mathf.RoundToInt(hp / 8f));
-            // Scrap is the arena currency: roughly 1 per grunt, 4 per tank, a big chunk per boss.
-            float gruntHp = baseGruntHealth * HealthMult;
-            int scrap = boss ? bossScrap : Mathf.Max(1, Mathf.RoundToInt(hp / gruntHp * 0.9f));
-            ob.Setup(hp, size, color, boss, coins, scrap);
+            var e = Instantiate(enemyPrefab, pos, Quaternion.identity, root);
+            e.Setup(def, hpMult, contactOverride);
         }
 
         // ---------------------------------------------------------------- gates
@@ -156,34 +167,28 @@ namespace SquadRush
         void SpawnGatePair(float z)
         {
             float half = laneHalfWidth * 0.5f;
-
             var a = RollGate(true);
             var b = Random.value < 0.5f ? RollGate(true) : RollGate(false);
             if (Random.value < 0.5f) { var t = a; a = b; b = t; }
-
             SpawnGate(new Vector3(-half, 0f, z), a.type, a.value, half);
             SpawnGate(new Vector3(half, 0f, z), b.type, b.value, half);
         }
 
+        /// <summary>Gate values are deliberately small and flat so growth is gradual.</summary>
         (PowerUpType type, float value) RollGate(bool positive)
         {
-            float scale = 1f + chunkIndex * 0.08f;
             if (positive)
             {
                 int r = Random.Range(0, 10);
-                if (r < 4) return (PowerUpType.AddUnits, Mathf.Round(Random.Range(3f, 7f) * scale));
-                if (r < 5) return (PowerUpType.MultiplyUnits, Random.value < 0.3f ? 2f : 1.5f);
-                if (r < 7) return (PowerUpType.Damage, Random.Range(20f, 40f));
-                if (r < 9) return (PowerUpType.FireRate, Random.Range(15f, 30f));
-                return (Random.value < 0.5f ? PowerUpType.MoveSpeed : PowerUpType.ProjectileSpeed, 20f);
+                if (r < 5) return (PowerUpType.AddUnits, Mathf.Round(Random.Range(2f, 4f) + Level * 0.5f));
+                if (r < 7) return (PowerUpType.Damage, Mathf.Round(Random.Range(8f, 15f)));
+                if (r < 9) return (PowerUpType.FireRate, Mathf.Round(Random.Range(6f, 12f)));
+                return (Random.value < 0.5f ? PowerUpType.MoveSpeed : PowerUpType.ProjectileSpeed, 10f);
             }
-            else
-            {
-                int r = Random.Range(0, 3);
-                if (r == 0) return (PowerUpType.AddUnits, -Mathf.Round(Random.Range(3f, 6f) * scale));
-                if (r == 1) return (PowerUpType.Damage, -20f);
-                return (PowerUpType.FireRate, -15f);
-            }
+            int n = Random.Range(0, 3);
+            if (n == 0) return (PowerUpType.AddUnits, -Mathf.Round(Random.Range(2f, 3f) + Level * 0.3f));
+            if (n == 1) return (PowerUpType.Damage, -10f);
+            return (PowerUpType.FireRate, -8f);
         }
 
         void SpawnGate(Vector3 pos, PowerUpType type, float value, float halfWidth)

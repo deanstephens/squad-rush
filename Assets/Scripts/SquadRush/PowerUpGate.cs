@@ -6,7 +6,6 @@ namespace SquadRush
     public enum PowerUpType
     {
         AddUnits,
-        MultiplyUnits,
         Damage,
         FireRate,
         MoveSpeed,
@@ -37,26 +36,16 @@ namespace SquadRush
 
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
-        public bool IsPositive => Type == PowerUpType.MultiplyUnits ? Value >= 1f : Value > 0f;
+        public bool IsPositive => Value > 0f;
 
         public void Setup(PowerUpType type, float value, float halfWidth)
         {
             Type = type;
             Value = value;
             HalfWidth = halfWidth;
-            shotStep = type switch
-            {
-                PowerUpType.AddUnits => 0.25f,
-                PowerUpType.MultiplyUnits => 0.02f,
-                _ => 0.5f,
-            };
-            // Shooting can at most double a good gate's bonus, or neutralise a bad one. Without a cap,
-            // a big squad pumps every gate into the hundreds and the run snowballs out of control.
-            shotCap = type switch
-            {
-                PowerUpType.MultiplyUnits => value >= 1f ? 1f + (value - 1f) * 2f : 1f,
-                _ => value > 0f ? value * 2f : 0f,
-            };
+            shotStep = type == PowerUpType.AddUnits ? 0.1f : 0.25f;
+            // Shooting nudges a good gate up by at most half again, or drags a bad one up to neutral.
+            shotCap = value > 0f ? value * 1.5f : 0f;
             mat = panel.material;
             Refresh();
         }
@@ -82,10 +71,8 @@ namespace SquadRush
                 case PowerUpType.AddUnits:
                 {
                     int v = Mathf.RoundToInt(Value);
-                    return (v >= 0 ? "+" : "") + v;
+                    return v > 0 ? "+" + v : v.ToString();
                 }
-                case PowerUpType.MultiplyUnits:
-                    return "x" + Value.ToString("0.0");
                 case PowerUpType.Damage:
                     return "DMG " + Pct();
                 case PowerUpType.FireRate:
@@ -101,7 +88,7 @@ namespace SquadRush
         string Pct()
         {
             int v = Mathf.RoundToInt(Value);
-            return (v >= 0 ? "+" : "") + v + "%";
+            return (v > 0 ? "+" : "") + v + "%";
         }
 
         public void Collect(Squad squad)
@@ -112,11 +99,10 @@ namespace SquadRush
             switch (Type)
             {
                 case PowerUpType.AddUnits: squad.AddUnits(Mathf.RoundToInt(Value)); break;
-                case PowerUpType.MultiplyUnits: squad.MultiplyUnits(Value); break;
-                case PowerUpType.Damage: squad.damage *= 1f + Value / 100f; break;
-                case PowerUpType.FireRate: squad.fireRate *= 1f + Value / 100f; break;
-                case PowerUpType.MoveSpeed: squad.moveSpeed *= 1f + Value / 100f; break;
-                case PowerUpType.ProjectileSpeed: squad.projectileSpeed *= 1f + Value / 100f; break;
+                case PowerUpType.Damage: squad.damageBonus = Mathf.Max(-0.5f, squad.damageBonus + Value / 100f); break;
+                case PowerUpType.FireRate: squad.fireRateBonus = Mathf.Max(-0.5f, squad.fireRateBonus + Value / 100f); break;
+                case PowerUpType.MoveSpeed: squad.moveSpeedBonus += Value / 100f; break;
+                case PowerUpType.ProjectileSpeed: squad.projectileSpeedBonus += Value / 100f; break;
             }
             squad.NotifyChanged();
 

@@ -31,6 +31,20 @@ namespace SquadRush
 
         public static int Level(UpgradeType t) => PlayerPrefs.GetInt("sr_lvl_" + t, 0);
 
+        /// <summary>Treadmill level the next run starts on. Advances when a boss dies.</summary>
+        public static int CurrentLevel
+        {
+            get => Mathf.Max(1, PlayerPrefs.GetInt("sr_level", 1));
+            set
+            {
+                PlayerPrefs.SetInt("sr_level", Mathf.Max(1, value));
+                if (value > BestLevel) PlayerPrefs.SetInt("sr_best_level", value);
+                PlayerPrefs.Save();
+            }
+        }
+
+        public static int BestLevel => Mathf.Max(1, PlayerPrefs.GetInt("sr_best_level", 1));
+
         public static int Cost(UpgradeType t) => Mathf.RoundToInt(40f * Mathf.Pow(Level(t) + 1, 1.6f));
 
         public static int StartUnits => 5 + 2 * Level(UpgradeType.StartUnits);

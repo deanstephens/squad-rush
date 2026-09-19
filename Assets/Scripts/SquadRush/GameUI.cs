@@ -14,6 +14,8 @@ namespace SquadRush
         public TMP_Text coinsText;
         public TMP_Text scrapText;
         public TMP_Text statsText;
+        public TMP_Text levelText;
+        public Image levelProgressFill;
 
         [Header("Menu")]
         public GameObject menuPanel;
@@ -30,6 +32,12 @@ namespace SquadRush
         public Button retryButton;
         public Button menuButton;
 
+        [Header("Level Clear")]
+        public GameObject levelClearPanel;
+        public TMP_Text levelClearText;
+        public Button nextLevelButton;
+        public Button clearMenuButton;
+
         [Header("Perks")]
         public GameObject perkPanel;
         public Button[] perkButtons;
@@ -44,6 +52,8 @@ namespace SquadRush
             if (retryButton) retryButton.onClick.AddListener(() => GameManager.Instance.Retry());
             if (menuButton) menuButton.onClick.AddListener(() => GameManager.Instance.BackToMenu());
             if (arenaButton) arenaButton.onClick.AddListener(() => GameManager.Instance.OpenArena());
+            if (nextLevelButton) nextLevelButton.onClick.AddListener(() => GameManager.Instance.ContinueToNextLevel());
+            if (clearMenuButton) clearMenuButton.onClick.AddListener(() => GameManager.Instance.BackToMenu());
 
             for (int i = 0; i < upgradeButtons.Length; i++)
             {
@@ -69,18 +79,19 @@ namespace SquadRush
             if (gm != null && gm.squad != null) gm.squad.Changed -= UpdateHud;
         }
 
-        void SetPanels(bool hud, bool menu, bool over, bool perks)
+        void SetPanels(bool hud, bool menu, bool over, bool perks, bool clear = false)
         {
             if (hudPanel) hudPanel.SetActive(hud);
             if (menuPanel) menuPanel.SetActive(menu);
             if (gameOverPanel) gameOverPanel.SetActive(over);
             if (perkPanel) perkPanel.SetActive(perks);
+            if (levelClearPanel) levelClearPanel.SetActive(clear);
         }
 
         public void ShowMenu()
         {
             SetPanels(false, true, false, false);
-            if (bestText) bestText.text = "BEST  " + MetaProgression.BestDistance.ToString("0") + " m";
+            if (bestText) bestText.text = "LEVEL " + MetaProgression.CurrentLevel + "   ·   BEST  " + MetaProgression.BestDistance.ToString("0") + " m";
             RefreshShop();
         }
 
@@ -101,13 +112,23 @@ namespace SquadRush
             if (coinsText) coinsText.text = "$" + gm.CoinsThisRun;
             if (scrapText) scrapText.text = "SCRAP " + gm.ScrapThisRun;
             if (statsText) statsText.text = "DMG " + s.damage.ToString("0.0") + "   RATE " + s.fireRate.ToString("0.0") + "/s";
+            if (levelText) levelText.text = "LEVEL " + gm.Level + (gm.director.BossSpawned ? "  ·  BOSS" : "");
+            if (levelProgressFill) levelProgressFill.fillAmount = gm.director.BossSpawned ? 1f : Mathf.Clamp01(gm.LevelDistance / Mathf.Max(1f, gm.director.LevelLength));
         }
 
-        public void ShowGameOver(float distance, int coins, int scrap, float best)
+        public void ShowLevelClear(int level, int coins, int scrap)
+        {
+            SetPanels(false, false, false, false, true);
+            if (levelClearText)
+                levelClearText.text = "LEVEL " + level + " CLEAR\n" +
+                                      "<size=70%>+$" + coins + "   +" + scrap + " SCRAP</size>";
+        }
+
+        public void ShowGameOver(int level, float distance, int coins, int scrap, float best)
         {
             SetPanels(false, false, true, false);
             if (resultText)
-                resultText.text = distance.ToString("0") + " m\n" +
+                resultText.text = "LEVEL " + level + "  ·  " + distance.ToString("0") + " m\n" +
                                   "+$" + coins + "   <size=70%>+" + scrap + " SCRAP</size>\n" +
                                   "<size=60%>BEST " + best.ToString("0") + " m</size>";
         }

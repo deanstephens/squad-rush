@@ -272,8 +272,8 @@ namespace SquadRush.EditorTools
             ui.coinsText = SceneBuilder.Text(hud.transform, "Coins", "$0", 52f, TextAlignmentOptions.Right, new Vector2(1f, 1f), new Vector2(-230f, -95f), new Vector2(400f, 110f), SceneBuilder.Gold, FontStyles.Bold);
             ui.killsText = SceneBuilder.Text(hud.transform, "Kills", "0 KILLS", 36f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -165f), new Vector2(500f, 60f), dim);
 
-            ui.xpFill = Bar(hud.transform, "XpBar", new Vector2(0.5f, 1f), new Vector2(0f, -215f), new Vector2(980f, 22f), new Color(0.35f, 1f, 0.7f));
-            ui.hpFill = Bar(hud.transform, "HpBar", new Vector2(0.5f, 0f), new Vector2(0f, 110f), new Vector2(760f, 40f), new Color(0.95f, 0.3f, 0.3f));
+            ui.xpFill = SceneBuilder.Bar(hud.transform, "XpBar", new Vector2(0.5f, 1f), new Vector2(0f, -215f), new Vector2(980f, 22f), new Color(0.35f, 1f, 0.7f));
+            ui.hpFill = SceneBuilder.Bar(hud.transform, "HpBar", new Vector2(0.5f, 0f), new Vector2(0f, 110f), new Vector2(760f, 40f), new Color(0.95f, 0.3f, 0.3f));
             ui.hpText = SceneBuilder.Text(hud.transform, "Hp", "100 / 100", 34f, TextAlignmentOptions.Center, new Vector2(0.5f, 0f), new Vector2(0f, 110f), new Vector2(760f, 40f), Color.white, FontStyles.Bold);
 
             // ---- Level up
@@ -304,33 +304,6 @@ namespace SquadRush.EditorTools
             lvl.SetActive(false);
             over.SetActive(false);
             return ui;
-        }
-
-        static Image Bar(Transform parent, string name, Vector2 anchor, Vector2 pos, Vector2 size, Color color)
-        {
-            var bgGo = new GameObject(name);
-            bgGo.transform.SetParent(parent, false);
-            SceneBuilder.Place(bgGo, anchor, pos, size);
-            var bg = bgGo.AddComponent<Image>();
-            bg.color = new Color(0f, 0f, 0f, 0.55f);
-            bg.raycastTarget = false;
-
-            var fillGo = new GameObject("Fill");
-            fillGo.transform.SetParent(bgGo.transform, false);
-            var rt = fillGo.AddComponent<RectTransform>();
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMin = new Vector2(3f, 3f);
-            rt.offsetMax = new Vector2(-3f, -3f);
-            var fill = fillGo.AddComponent<Image>();
-            fill.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
-            fill.type = Image.Type.Filled;
-            fill.fillMethod = Image.FillMethod.Horizontal;
-            fill.fillOrigin = 0;
-            fill.fillAmount = 1f;
-            fill.color = color;
-            fill.raycastTarget = false;
-            return fill;
         }
     }
 }

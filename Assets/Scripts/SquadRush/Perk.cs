@@ -23,16 +23,16 @@ namespace SquadRush
     {
         public static readonly List<Perk> All = new List<Perk>
         {
-            new Perk("Reinforcements", "+15 units", gm => gm.squad.AddUnits(15)),
-            new Perk("Clone Army", "Double your units", gm => gm.squad.MultiplyUnits(2f)),
-            new Perk("Heavy Rounds", "+40% damage", gm => gm.squad.damage *= 1.4f),
-            new Perk("Rapid Fire", "+30% fire rate", gm => gm.squad.fireRate *= 1.3f),
-            new Perk("Piercing Shots", "Bullets pass through one extra target", gm => gm.squad.pierce += 1),
-            new Perk("Big Bullets", "Larger bullets, +20% damage", gm => { gm.squad.projectileScale *= 1.5f; gm.squad.damage *= 1.2f; }),
+            new Perk("Reinforcements", "+6 units", gm => gm.squad.AddUnits(6)),
+            new Perk("Recruit Drive", "+10 units", gm => gm.squad.AddUnits(10)),
+            new Perk("Heavy Rounds", "+20% damage", gm => gm.squad.damageBonus += 0.2f),
+            new Perk("Rapid Fire", "+15% fire rate", gm => gm.squad.fireRateBonus += 0.15f),
+            new Perk("Piercing Shots", "Bullets pass through one extra enemy", gm => gm.squad.pierce += 1),
+            new Perk("Big Bullets", "Larger bullets, +10% damage", gm => { gm.squad.projectileScale += 0.3f; gm.squad.damageBonus += 0.1f; }),
             new Perk("Barrier", "Absorb the next 2 hits", gm => gm.squad.shields += 2),
-            new Perk("Brakes", "Treadmill runs 15% slower", gm => gm.treadmillSpeedMultiplier *= 0.85f),
-            new Perk("Velocity", "+30% bullet speed", gm => gm.squad.projectileSpeed *= 1.3f),
-            new Perk("Nimble", "+30% move speed", gm => gm.squad.moveSpeed *= 1.3f),
+            new Perk("Brakes", "Treadmill runs 10% slower", gm => gm.treadmillSpeedMultiplier = Mathf.Max(0.6f, gm.treadmillSpeedMultiplier - 0.1f)),
+            new Perk("Velocity", "+20% bullet speed", gm => gm.squad.projectileSpeedBonus += 0.2f),
+            new Perk("Nimble", "+20% move speed", gm => gm.squad.moveSpeedBonus += 0.2f),
         };
 
         public static Perk[] RollThree()

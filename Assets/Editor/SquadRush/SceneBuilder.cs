@@ -42,7 +42,8 @@ namespace SquadRush.EditorTools
             var matUnit = Lit("Unit", new Color(0.25f, 0.6f, 1f));
             var matUnitDark = Lit("UnitDark", new Color(0.12f, 0.2f, 0.4f));
             var matProjectile = Lit("Projectile", new Color(1f, 0.9f, 0.3f), emissive: new Color(1f, 0.8f, 0.2f) * 1.5f);
-            var matObstacle = Lit("Obstacle", new Color(0.9f, 0.4f, 0.3f));
+            var matEnemy = Lit("Obstacle", new Color(0.95f, 0.45f, 0.3f));
+            var matEnemyDark = Lit("UnitDark", new Color(0.12f, 0.2f, 0.4f));
             var matGroundA = Lit("GroundA", new Color(0.32f, 0.36f, 0.45f));
             var matGroundB = Lit("GroundB", new Color(0.28f, 0.31f, 0.40f));
             var matRail = Lit("Rail", new Color(0.9f, 0.85f, 0.6f));
@@ -52,7 +53,7 @@ namespace SquadRush.EditorTools
             // ---- prefabs
             var unitPrefab = BuildUnitPrefab(matUnit, matUnitDark);
             var projectilePrefab = BuildProjectilePrefab(matProjectile);
-            var obstaclePrefab = BuildObstaclePrefab(matObstacle);
+            var enemyPrefab = BuildEnemyPrefab(matEnemy, matEnemyDark);
             var gatePrefab = BuildGatePrefab(matGate);
 
             // ---- scene
@@ -94,7 +95,7 @@ namespace SquadRush.EditorTools
 
             var directorGo = new GameObject("LevelDirector");
             var director = directorGo.AddComponent<LevelDirector>();
-            director.obstaclePrefab = obstaclePrefab;
+            director.enemyPrefab = enemyPrefab;
             director.gatePrefab = gatePrefab;
             director.debrisMaterial = matDebris;
             director.laneHalfWidth = LaneHalfWidth;
@@ -249,20 +250,20 @@ namespace SquadRush.EditorTools
             return SavePrefab<Projectile>(go, "Projectile");
         }
 
-        static Obstacle BuildObstaclePrefab(Material mat)
+        internal static TreadmillEnemy BuildEnemyPrefab(Material mat, Material dark)
         {
-            var root = new GameObject("Obstacle");
+            var root = new GameObject("TreadmillEnemy");
             var rb = root.AddComponent<Rigidbody>();
             rb.isKinematic = true;
             rb.useGravity = false;
-            root.AddComponent<ScrollingObject>().despawnZ = -8f;
-            var ob = root.AddComponent<Obstacle>();
+            var enemy = root.AddComponent<TreadmillEnemy>();
 
-            var body = Primitive(PrimitiveType.Cube, "Body", root.transform, new Vector3(0f, 0.5f, 0f), Vector3.one, mat, true);
-            ob.body = body.transform;
-            ob.bodyRenderer = body.GetComponent<Renderer>();
-            ob.label = WorldLabel(root.transform, new Vector3(0f, 1.7f, 0f), 5f);
-            return SavePrefab<Obstacle>(root, "Obstacle");
+            var body = Primitive(PrimitiveType.Capsule, "Body", root.transform, new Vector3(0f, 0.55f, 0f), new Vector3(0.8f, 0.55f, 0.8f), mat, true);
+            Primitive(PrimitiveType.Cube, "Eye", body.transform, new Vector3(0f, 0.5f, -0.45f), new Vector3(0.55f, 0.18f, 0.25f), dark, false);
+            enemy.body = body.transform;
+            enemy.bodyRenderer = body.GetComponent<Renderer>();
+            enemy.label = WorldLabel(root.transform, new Vector3(0f, 1.45f, 0f), 4f);
+            return SavePrefab<TreadmillEnemy>(root, "TreadmillEnemy");
         }
 
         static PowerUpGate BuildGatePrefab(Material mat)
@@ -339,6 +340,8 @@ namespace SquadRush.EditorTools
             ui.coinsText = Text(hud.transform, "Coins", "$0", 60f, TextAlignmentOptions.Right, new Vector2(1f, 1f), new Vector2(-280f, -95f), new Vector2(500f, 110f), Gold, FontStyles.Bold);
             ui.statsText = Text(hud.transform, "Stats", "", 38f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -180f), new Vector2(900f, 70f), new Color(0.8f, 0.82f, 0.9f));
             ui.scrapText = Text(hud.transform, "Scrap", "SCRAP 0", 40f, TextAlignmentOptions.Right, new Vector2(1f, 1f), new Vector2(-280f, -180f), new Vector2(500f, 70f), new Color(0.6f, 0.9f, 1f), FontStyles.Bold);
+            ui.levelText = Text(hud.transform, "Level", "LEVEL 1", 40f, TextAlignmentOptions.Left, new Vector2(0f, 1f), new Vector2(280f, -180f), new Vector2(500f, 70f), Gold, FontStyles.Bold);
+            ui.levelProgressFill = Bar(hud.transform, "LevelBar", new Vector2(0.5f, 1f), new Vector2(0f, -235f), new Vector2(980f, 18f), Gold);
 
             // ---- Menu
             var menu = Panel(root, "Menu", new Color(0.05f, 0.07f, 0.12f, 0.88f));
@@ -367,10 +370,17 @@ namespace SquadRush.EditorTools
             ui.retryButton = Btn(over.transform, "Retry", "RETRY", new Vector2(0.5f, 0.5f), new Vector2(0f, -220f), new Vector2(760f, 180f), Green, 84f, out _);
             ui.menuButton = Btn(over.transform, "MenuBtn", "MENU", new Vector2(0.5f, 0.5f), new Vector2(0f, -440f), new Vector2(760f, 140f), Grey, 60f, out _);
 
+            // ---- Level clear
+            var clear = Panel(root, "LevelClear", new Color(0.03f, 0.1f, 0.08f, 0.92f));
+            ui.levelClearPanel = clear;
+            ui.levelClearText = Text(clear.transform, "Result", "LEVEL 1 CLEAR", 100f, TextAlignmentOptions.Center, new Vector2(0.5f, 0.5f), new Vector2(0f, 220f), new Vector2(1000f, 400f), Gold, FontStyles.Bold);
+            ui.nextLevelButton = Btn(clear.transform, "Next", "NEXT LEVEL", new Vector2(0.5f, 0.5f), new Vector2(0f, -180f), new Vector2(760f, 180f), Green, 80f, out _);
+            ui.clearMenuButton = Btn(clear.transform, "ClearMenu", "MENU", new Vector2(0.5f, 0.5f), new Vector2(0f, -400f), new Vector2(760f, 140f), Grey, 60f, out _);
+
             // ---- Perks
             var perks = Panel(root, "Perks", new Color(0.05f, 0.05f, 0.11f, 0.92f));
             ui.perkPanel = perks;
-            Text(perks.transform, "Title", "BOSS DOWN!\n<size=60%>CHOOSE A PERK</size>", 96f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -360f), new Vector2(1000f, 280f), Gold, FontStyles.Bold);
+            Text(perks.transform, "Title", "CHOOSE A PERK\n<size=60%>FOR THE NEXT LEVEL</size>", 96f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -360f), new Vector2(1000f, 280f), Gold, FontStyles.Bold);
             ui.perkButtons = new Button[3];
             ui.perkTitles = new TMP_Text[3];
             ui.perkDescs = new TMP_Text[3];
@@ -386,7 +396,35 @@ namespace SquadRush.EditorTools
             hud.SetActive(false);
             over.SetActive(false);
             perks.SetActive(false);
+            clear.SetActive(false);
             return ui;
+        }
+
+        internal static Image Bar(Transform parent, string name, Vector2 anchor, Vector2 pos, Vector2 size, Color color)
+        {
+            var bgGo = new GameObject(name);
+            bgGo.transform.SetParent(parent, false);
+            Place(bgGo, anchor, pos, size);
+            var bg = bgGo.AddComponent<Image>();
+            bg.color = new Color(0f, 0f, 0f, 0.55f);
+            bg.raycastTarget = false;
+
+            var fillGo = new GameObject("Fill");
+            fillGo.transform.SetParent(bgGo.transform, false);
+            var rt = fillGo.AddComponent<RectTransform>();
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = new Vector2(3f, 3f);
+            rt.offsetMax = new Vector2(-3f, -3f);
+            var fill = fillGo.AddComponent<Image>();
+            fill.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+            fill.type = Image.Type.Filled;
+            fill.fillMethod = Image.FillMethod.Horizontal;
+            fill.fillOrigin = 0;
+            fill.fillAmount = 1f;
+            fill.color = color;
+            fill.raycastTarget = false;
+            return fill;
         }
 
         internal static RectTransform Place(GameObject go, Vector2 anchor, Vector2 pos, Vector2 size)

@@ -7,6 +7,7 @@ namespace SquadRush
     {
         Menu,
         Playing,
+        LevelClear,
         PerkChoice,
         GameOver,
     }
@@ -26,12 +27,16 @@ namespace SquadRush
 
         [Header("Treadmill")]
         public float baseSpeed = 6f;
-        public float speedPerMeter = 0.01f;
-        public float maxSpeed = 13f;
+        public float speedPerLevel = 0.35f;
+        public float speedPerMeter = 0.004f;
+        public float maxSpeed = 12f;
         [HideInInspector] public float treadmillSpeedMultiplier = 1f;
 
         public GameState State { get; private set; } = GameState.Menu;
         public float Distance { get; private set; }
+        /// <summary>Distance into the current level; the boss arrives at the director's LevelLength.</summary>
+        public float LevelDistance { get; private set; }
+        public int Level { get; private set; } = 1;
         public int CoinsThisRun { get; private set; }
         public int ScrapThisRun { get; private set; }
 
@@ -62,8 +67,10 @@ namespace SquadRush
         {
             if (State != GameState.Playing) return;
 
-            Treadmill.Speed = Mathf.Min(maxSpeed, baseSpeed + Distance * speedPerMeter) * treadmillSpeedMultiplier;
-            Distance += Treadmill.Speed * Time.deltaTime;
+            Treadmill.Speed = Mathf.Min(maxSpeed, baseSpeed + (Level - 1) * speedPerLevel + LevelDistance * speedPerMeter) * treadmillSpeedMultiplier;
+            float step = Treadmill.Speed * Time.deltaTime;
+            Distance += step;
+            if (!director.BossSpawned) LevelDistance += step;
             ui.UpdateHud();
         }
 
@@ -72,11 +79,13 @@ namespace SquadRush
             if (State == GameState.Playing) return;
             State = GameState.Playing;
             Distance = 0f;
+            LevelDistance = 0f;
+            Level = MetaProgression.CurrentLevel;
             CoinsThisRun = 0;
             ScrapThisRun = 0;
             Treadmill.Speed = baseSpeed;
             Treadmill.Running = true;
-            director.BeginRun();
+            director.BeginLevel(Level);
             ui.ShowHud();
         }
 
@@ -92,11 +101,31 @@ namespace SquadRush
             ScrapThisRun += n;
         }
 
+        /// <summary>Boss down: bank the level's earnings, save progress, show the clear screen.</summary>
         public void OnBossKilled()
         {
             if (State != GameState.Playing) return;
-            State = GameState.PerkChoice;
+            State = GameState.LevelClear;
             Treadmill.Running = false;
+
+            ScrapThisRun += 5 + Level * 2;
+            int coins = CoinsThisRun, scrap = ScrapThisRun;
+            MetaProgression.AddCoins(coins);
+            MetaProgression.AddScrap(scrap);
+            MetaProgression.RecordDistance(Distance);
+            CoinsThisRun = 0;
+            ScrapThisRun = 0;
+            MetaProgression.CurrentLevel = Level + 1;
+
+            director.ClearLane();
+            ui.ShowLevelClear(Level, coins, scrap);
+        }
+
+        /// <summary>From the clear screen: pick a perk, then the next level starts.</summary>
+        public void ContinueToNextLevel()
+        {
+            if (State != GameState.LevelClear) return;
+            State = GameState.PerkChoice;
             Time.timeScale = 0f;
             ui.ShowPerkChoice(PerkLibrary.RollThree());
         }
@@ -107,6 +136,10 @@ namespace SquadRush
             perk.Apply(this);
             squad.NotifyChanged();
             Time.timeScale = 1f;
+
+            Level++;
+            LevelDistance = 0f;
+            director.BeginLevel(Level);
             Treadmill.Running = true;
             State = GameState.Playing;
             ui.ShowHud();
@@ -123,7 +156,7 @@ namespace SquadRush
             MetaProgression.AddCoins(CoinsThisRun);
             MetaProgression.AddScrap(ScrapThisRun);
             MetaProgression.RecordDistance(Distance);
-            ui.ShowGameOver(Distance, CoinsThisRun, ScrapThisRun, MetaProgression.BestDistance);
+            ui.ShowGameOver(Level, Distance, CoinsThisRun, ScrapThisRun, MetaProgression.BestDistance);
         }
 
         public void Retry()

@@ -22,15 +22,30 @@ namespace SquadRush
         public float spacing = 0.55f;
         public float laneHalfWidth = 2.6f;
 
-        [Header("Stats (run-time, modified by gates and perks)")]
+        [Header("Stats (base values come from meta upgrades; gates and perks add to the bonuses)")]
         public int UnitCount;
-        public float damage = 2f;
-        public float fireRate = 2f;
-        public float projectileSpeed = 24f;
-        public float moveSpeed = 9f;
+        public float baseDamage = 2f;
+        public float baseFireRate = 2f;
+        public float baseMoveSpeed = 9f;
+        public float baseProjectileSpeed = 24f;
+        [Tooltip("Additive fractions: 0.25 = +25%.")]
+        public float damageBonus;
+        public float fireRateBonus;
+        public float moveSpeedBonus;
+        public float projectileSpeedBonus;
         public int pierce = 0;
         public float projectileScale = 1f;
         public int shields = 0;
+
+        public float damage => baseDamage * (1f + damageBonus);
+        public float fireRate => baseFireRate * (1f + fireRateBonus);
+        public float moveSpeed => Mathf.Min(maxMoveSpeed, baseMoveSpeed * (1f + moveSpeedBonus));
+        public float projectileSpeed => baseProjectileSpeed * (1f + projectileSpeedBonus);
+
+        [Header("Aim")]
+        [Tooltip("Units nudge their shots toward the nearest enemy inside this half-angle (degrees).")]
+        public float aimConeDegrees = 30f;
+        public float aimRange = 35f;
 
         [Header("Input")]
         [Tooltip("Dragging this fraction of the screen width moves the squad across the whole lane.")]
@@ -67,8 +82,8 @@ namespace SquadRush
         public void ApplyMeta()
         {
             UnitCount = MetaProgression.StartUnits;
-            damage = MetaProgression.Damage;
-            fireRate = MetaProgression.FireRate;
+            baseDamage = MetaProgression.Damage;
+            baseFireRate = MetaProgression.FireRate;
             SyncVisuals();
             Changed?.Invoke();
         }
@@ -150,7 +165,6 @@ namespace SquadRush
         void HandleInput()
         {
             float dt = Time.deltaTime;
-            moveSpeed = Mathf.Min(moveSpeed, maxMoveSpeed);
 
             // Position-based drag: the Input System's per-frame delta can contain the jump from the
             // previous touch's position on the first frame of a new touch, which used to fling the
@@ -206,14 +220,39 @@ namespace SquadRush
             foreach (var u in units)
             {
                 var pos = u.firePoint != null ? u.firePoint.position : u.transform.position + Vector3.up * 0.4f;
-                Fire(pos, dmgPerShot);
+                Fire(pos, AimFrom(pos), dmgPerShot);
             }
         }
 
-        void Fire(Vector3 position, float dmg)
+        /// <summary>Straight ahead unless an enemy is inside the aim cone, in which case lean toward the nearest one.</summary>
+        Vector3 AimFrom(Vector3 from)
+        {
+            TreadmillEnemy best = null;
+            float bestD = aimRange * aimRange;
+            float cosLimit = Mathf.Cos(aimConeDegrees * Mathf.Deg2Rad);
+            var all = TreadmillEnemy.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                var e = all[i];
+                if (e == null || e.Dead) continue;
+                Vector3 to = e.transform.position - from;
+                to.y = 0f;
+                float d2 = to.sqrMagnitude;
+                if (d2 < 0.25f || d2 > bestD) continue;
+                if (Vector3.Dot(to / Mathf.Sqrt(d2), Vector3.forward) < cosLimit) continue;
+                bestD = d2;
+                best = e;
+            }
+            if (best == null) return Vector3.forward;
+            Vector3 dir = best.transform.position - from;
+            dir.y = 0f;
+            return dir.normalized;
+        }
+
+        void Fire(Vector3 position, Vector3 dir, float dmg)
         {
             Projectile p = pool.Count > 0 ? pool.Pop() : Instantiate(projectilePrefab, projectileRoot);
-            p.Launch(position, projectileSpeed, dmg, pierce, projectileScale, projectileLifetime, ReturnToPool);
+            p.Launch(position, dir, projectileSpeed, dmg, pierce, projectileScale, projectileLifetime, ReturnToPool);
         }
 
         void ReturnToPool(Projectile p) => pool.Push(p);
@@ -225,10 +264,10 @@ namespace SquadRush
             var gm = GameManager.Instance;
             if (gm == null || gm.State != GameState.Playing) return;
 
-            var ob = other.GetComponentInParent<Obstacle>();
-            if (ob != null)
+            var enemy = other.GetComponentInParent<TreadmillEnemy>();
+            if (enemy != null)
             {
-                ob.OnSquadContact(this);
+                enemy.OnSquadContact(this);
                 return;
             }
 

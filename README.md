@@ -6,12 +6,19 @@ with a second Vampire Survivors–style **Arena** mode. The two modes feed each 
 - **Treadmill** runs drop coins (treadmill upgrades) and **Scrap** (arena guns).
 - **Arena** runs earn coins for the treadmill shop.
 
-Your squad stands at the bottom of a treadmill lane. Obstacles slide toward you; your units
-shoot forward automatically. Drag left/right to steer. Shoot obstacles down before they hit you,
-or lose units on contact. Run through blue gates to grow (units, damage, fire rate, speed);
-avoid red ones. Shooting a gate improves its value before you reach it. Every ninth chunk is a
-boss; killing it pauses the run and offers a choice of one of three perks. Coins earned in a run
-buy permanent upgrades (start units, damage, fire rate) on the main menu.
+Your squad stands at the bottom of a treadmill lane. Hordes of enemies (grunts, fast runners,
+tanks) walk down the lane and drift sideways to reach you; your units shoot forward
+automatically. Drag left/right to steer. Kill enemies before they hit you, or lose units on
+contact. Run through blue gates to grow (units, damage, fire rate, speed); avoid red ones.
+Shooting a gate nudges its value up before you reach it.
+
+Each **level** runs a set distance, then a boss walks in, parks in front of the squad and bites
+units until you kill it. Killing it clears the level, banks the coins and Scrap, and offers a
+perk before the next level. Your level is saved, so a lost run resumes at the level you reached.
+Coins buy permanent upgrades (start units, damage, fire rate) on the main menu.
+
+Stat growth is additive: gates and perks add to a bonus pool applied to the base stat, so
+scaling stays gradual instead of compounding.
 
 ## Arena mode
 
@@ -48,14 +55,14 @@ Guns, their mods and their run perks are all defined in `GunLibrary`; the mechan
 
 ## Runtime scripts
 
-- `GameManager` – run state machine (Menu → Playing → PerkChoice → GameOver), treadmill speed curve, coins.
+- `GameManager` – run state machine (Menu → Playing → LevelClear → PerkChoice → Playing … → GameOver), treadmill speed curve, coins and Scrap banking per level.
 - `Treadmill` / `ScrollingObject` / `GroundScroller` – the conveyor: everything in the lane moves toward -Z.
 - `Squad` – the army. Formation layout, drag/keyboard steering, volley firing, contact with obstacles and gates. `UnitCount` is the health.
 - `Unit` – one visible soldier (visual only; capped at `maxVisibleUnits`, hidden units still add damage).
 - `Projectile` – sphere-cast bullet with pooling, damage, and pierce.
-- `Obstacle` – health, hit flash, floating health label, contact damage to the squad, boss flag.
+- `TreadmillEnemy` – horde enemy: rides the belt, walks, drifts toward the squad, health label, contact damage; the boss variant parks and bites.
 - `PowerUpGate` – positive/negative stat gates, improved by shooting them.
-- `LevelDirector` – streams chunks: obstacle patterns, gate pairs every 3rd chunk, boss every 9th. Difficulty scales with distance.
+- `LevelDirector` – runs one level: horde patterns (packs, lines, runners, tanks), gate pairs every 3rd chunk, then the boss at the level's length. Scales with level and distance.
 - `Perk` / `PerkLibrary` – the boss-reward perks (run only).
 - `MetaProgression` – PlayerPrefs-backed coins, Scrap, best scores, treadmill upgrade levels, unlocked guns, gun levels, owned mods and the selected arena gun.
 - `GunLibrary` – the guns, their stats, purchasable mods and run perks (shared by the Armory and the arena).
