@@ -54,23 +54,26 @@
       window.addEventListener("resize", resizeCanvas);
       resizeCanvas();
 
+      // Every build gets a fresh version stamp so browsers never pair a cached glue script
+      // with a newer wasm binary (GitHub Pages caches files for 10 minutes).
       var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}";
+      var v = "?v=" + encodeURIComponent({{{ JSON.stringify(PRODUCT_VERSION) }}});
+      var loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}" + v;
       var config = {
         arguments: [],
-        dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
-        frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+        dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}" + v,
+        frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}" + v,
 #if USE_THREADS
-        workerUrl: buildUrl + "/{{{ WORKER_FILENAME }}}",
+        workerUrl: buildUrl + "/{{{ WORKER_FILENAME }}}" + v,
 #endif
 #if USE_WASM
-        codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+        codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}" + v,
 #endif
 #if MEMORY_FILENAME
-        memoryUrl: buildUrl + "/{{{ MEMORY_FILENAME }}}",
+        memoryUrl: buildUrl + "/{{{ MEMORY_FILENAME }}}" + v,
 #endif
 #if SYMBOLS_FILENAME
-        symbolsUrl: buildUrl + "/{{{ SYMBOLS_FILENAME }}}",
+        symbolsUrl: buildUrl + "/{{{ SYMBOLS_FILENAME }}}" + v,
 #endif
         streamingAssetsUrl: "StreamingAssets",
         companyName: {{{ JSON.stringify(COMPANY_NAME) }}},

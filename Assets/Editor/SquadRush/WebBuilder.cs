@@ -16,7 +16,10 @@ namespace SquadRush.EditorTools
             PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
             PlayerSettings.WebGL.decompressionFallback = false;
             PlayerSettings.WebGL.template = "PROJECT:Mobile";
-            PlayerSettings.WebGL.dataCaching = true;
+            // No IndexedDB data cache: a stale cached .data from an older deploy is worse than a re-download.
+            PlayerSettings.WebGL.dataCaching = false;
+            // Version stamp doubles as the cache-buster in the web template.
+            PlayerSettings.bundleVersion = System.DateTime.UtcNow.ToString("yyyyMMdd.HHmm");
             PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.ExplicitlyThrownExceptionsOnly;
             PlayerSettings.WebGL.threadsSupport = false;
             PlayerSettings.runInBackground = true;
