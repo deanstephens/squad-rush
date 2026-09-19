@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SquadRush
@@ -61,6 +62,76 @@ namespace SquadRush
             PlayerPrefs.SetInt("sr_lvl_" + t, Level(t) + 1);
             PlayerPrefs.Save();
             return true;
+        }
+
+        // ---------------------------------------------------------------- scrap (arena currency)
+
+        const string ScrapKey = "sr_scrap";
+        const string LoadoutKey = "sr_loadout";
+        const string BestArenaKey = "sr_best_arena";
+        public const int LoadoutSlots = 3;
+
+        /// <summary>Materials gathered in treadmill runs. Spent in the Armory on guns.</summary>
+        public static int Scrap
+        {
+            get => PlayerPrefs.GetInt(ScrapKey, 0);
+            private set => PlayerPrefs.SetInt(ScrapKey, value);
+        }
+
+        public static float BestArenaTime
+        {
+            get => PlayerPrefs.GetFloat(BestArenaKey, 0f);
+            private set => PlayerPrefs.SetFloat(BestArenaKey, value);
+        }
+
+        public static void AddScrap(int n)
+        {
+            Scrap += Mathf.Max(0, n);
+            PlayerPrefs.Save();
+        }
+
+        public static bool TrySpendScrap(int n)
+        {
+            if (Scrap < n) return false;
+            Scrap -= n;
+            PlayerPrefs.Save();
+            return true;
+        }
+
+        public static void RecordArenaTime(float seconds)
+        {
+            if (seconds > BestArenaTime)
+            {
+                BestArenaTime = seconds;
+                PlayerPrefs.Save();
+            }
+        }
+
+        public static bool IsGunUnlocked(string id) => id == GunLibrary.DefaultGunId || PlayerPrefs.GetInt("sr_gun_" + id, 0) == 1;
+
+        public static void UnlockGun(string id)
+        {
+            PlayerPrefs.SetInt("sr_gun_" + id, 1);
+            PlayerPrefs.Save();
+        }
+
+        /// <summary>Gun ids equipped for the arena, in slot order. Always contains at least one unlocked gun.</summary>
+        public static List<string> EquippedGuns
+        {
+            get
+            {
+                var result = new List<string>();
+                foreach (var id in PlayerPrefs.GetString(LoadoutKey, GunLibrary.DefaultGunId).Split(','))
+                    if (GunLibrary.Get(id) != null && IsGunUnlocked(id) && !result.Contains(id) && result.Count < LoadoutSlots)
+                        result.Add(id);
+                if (result.Count == 0) result.Add(GunLibrary.DefaultGunId);
+                return result;
+            }
+            set
+            {
+                PlayerPrefs.SetString(LoadoutKey, string.Join(",", value));
+                PlayerPrefs.Save();
+            }
         }
 
         public static void AddCoins(int n)

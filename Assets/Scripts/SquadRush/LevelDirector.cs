@@ -26,6 +26,8 @@ namespace SquadRush
         public float healthPerChunk = 0.03f;
         [Tooltip("Health of a lane-spanning wall, as a multiple of a grunt's health.")]
         public float fullWallHealthScale = 2.2f;
+        [Tooltip("Scrap dropped by a boss.")]
+        public int bossScrap = 15;
 
         [Header("Colors")]
         public Color gruntColor = new Color(0.95f, 0.45f, 0.3f);
@@ -143,7 +145,10 @@ namespace SquadRush
         {
             var ob = Instantiate(obstaclePrefab, pos, Quaternion.identity, root);
             int coins = Mathf.Max(1, Mathf.RoundToInt(hp / 8f));
-            ob.Setup(hp, size, color, boss, coins);
+            // Scrap is the arena currency: roughly 1 per grunt, 4 per tank, a big chunk per boss.
+            float gruntHp = baseGruntHealth * HealthMult;
+            int scrap = boss ? bossScrap : Mathf.Max(1, Mathf.RoundToInt(hp / gruntHp * 0.9f));
+            ob.Setup(hp, size, color, boss, coins, scrap);
         }
 
         // ---------------------------------------------------------------- gates

@@ -12,6 +12,7 @@ namespace SquadRush
         public TMP_Text unitsText;
         public TMP_Text distanceText;
         public TMP_Text coinsText;
+        public TMP_Text scrapText;
         public TMP_Text statsText;
 
         [Header("Menu")]
@@ -19,6 +20,7 @@ namespace SquadRush
         public TMP_Text bestText;
         public TMP_Text bankText;
         public Button playButton;
+        public Button arenaButton;
         public Button[] upgradeButtons;
         public TMP_Text[] upgradeLabels;
 
@@ -41,6 +43,7 @@ namespace SquadRush
             if (playButton) playButton.onClick.AddListener(() => GameManager.Instance.StartRun());
             if (retryButton) retryButton.onClick.AddListener(() => GameManager.Instance.Retry());
             if (menuButton) menuButton.onClick.AddListener(() => GameManager.Instance.BackToMenu());
+            if (arenaButton) arenaButton.onClick.AddListener(() => GameManager.Instance.OpenArena());
 
             for (int i = 0; i < upgradeButtons.Length; i++)
             {
@@ -96,15 +99,16 @@ namespace SquadRush
             if (unitsText) unitsText.text = "UNITS  " + s.UnitCount + (s.shields > 0 ? "  ◆" + s.shields : "");
             if (distanceText) distanceText.text = gm.Distance.ToString("0") + " m";
             if (coinsText) coinsText.text = "$" + gm.CoinsThisRun;
+            if (scrapText) scrapText.text = "SCRAP " + gm.ScrapThisRun;
             if (statsText) statsText.text = "DMG " + s.damage.ToString("0.0") + "   RATE " + s.fireRate.ToString("0.0") + "/s";
         }
 
-        public void ShowGameOver(float distance, int coins, float best)
+        public void ShowGameOver(float distance, int coins, int scrap, float best)
         {
             SetPanels(false, false, true, false);
             if (resultText)
                 resultText.text = distance.ToString("0") + " m\n" +
-                                  "+$" + coins + "\n" +
+                                  "+$" + coins + "   <size=70%>+" + scrap + " SCRAP</size>\n" +
                                   "<size=60%>BEST " + best.ToString("0") + " m</size>";
         }
 
@@ -137,7 +141,7 @@ namespace SquadRush
 
         void RefreshShop()
         {
-            if (bankText) bankText.text = "$" + MetaProgression.Coins;
+            if (bankText) bankText.text = "$" + MetaProgression.Coins + "     SCRAP " + MetaProgression.Scrap;
             for (int i = 0; i < upgradeButtons.Length; i++)
             {
                 var t = (UpgradeType)i;

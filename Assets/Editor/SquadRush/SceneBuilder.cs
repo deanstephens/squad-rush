@@ -18,9 +18,10 @@ namespace SquadRush.EditorTools
     /// </summary>
     public static class SceneBuilder
     {
-        const string MatDir = "Assets/Materials";
-        const string PrefabDir = "Assets/Prefabs";
+        internal const string MatDir = "Assets/Materials";
+        internal const string PrefabDir = "Assets/Prefabs";
         const string ScenePath = "Assets/Scenes/Game.unity";
+        internal const string ArenaScenePath = "Assets/Scenes/Arena.unity";
 
         const float LaneHalfWidth = 2.6f;
         const int GroundSegments = 10;
@@ -107,10 +108,26 @@ namespace SquadRush.EditorTools
             gm.ui = ui;
 
             EditorSceneManager.SaveScene(scene, ScenePath);
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+            RegisterScenes();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("[SceneBuilder] Built " + ScenePath);
+        }
+
+        internal static void RegisterScenes()
+        {
+            var list = new System.Collections.Generic.List<EditorBuildSettingsScene>();
+            list.Add(new EditorBuildSettingsScene(ScenePath, true));
+            if (File.Exists(ArenaScenePath)) list.Add(new EditorBuildSettingsScene(ArenaScenePath, true));
+            EditorBuildSettings.scenes = list.ToArray();
+        }
+
+        [MenuItem("SquadRush/Build All Scenes")]
+        public static void BuildAll()
+        {
+            Build();
+            ArenaSceneBuilder.BuildArena();
+            RegisterScenes();
         }
 
         // ------------------------------------------------------------------ project settings
@@ -126,7 +143,7 @@ namespace SquadRush.EditorTools
 
         // ------------------------------------------------------------------ materials
 
-        static Material Lit(string name, Color color, Color? emissive = null)
+        internal static Material Lit(string name, Color color, Color? emissive = null)
         {
             string path = MatDir + "/" + name + ".mat";
             var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
@@ -147,7 +164,7 @@ namespace SquadRush.EditorTools
             return mat;
         }
 
-        static Material TransparentUnlit(string name, Color color)
+        internal static Material TransparentUnlit(string name, Color color)
         {
             string path = MatDir + "/" + name + ".mat";
             var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
@@ -169,7 +186,7 @@ namespace SquadRush.EditorTools
 
         // ------------------------------------------------------------------ prefabs
 
-        static GameObject Primitive(PrimitiveType type, string name, Transform parent, Vector3 localPos, Vector3 scale, Material mat, bool keepCollider)
+        internal static GameObject Primitive(PrimitiveType type, string name, Transform parent, Vector3 localPos, Vector3 scale, Material mat, bool keepCollider)
         {
             var go = GameObject.CreatePrimitive(type);
             go.name = name;
@@ -181,7 +198,7 @@ namespace SquadRush.EditorTools
             return go;
         }
 
-        static TextMeshPro WorldLabel(Transform parent, Vector3 localPos, float size)
+        internal static TextMeshPro WorldLabel(Transform parent, Vector3 localPos, float size)
         {
             var go = new GameObject("Label");
             go.transform.SetParent(parent, false);
@@ -199,7 +216,7 @@ namespace SquadRush.EditorTools
             return tmp;
         }
 
-        static T SavePrefab<T>(GameObject go, string name) where T : Component
+        internal static T SavePrefab<T>(GameObject go, string name) where T : Component
         {
             string path = PrefabDir + "/" + name + ".prefab";
             var saved = PrefabUtility.SaveAsPrefabAsset(go, path);
@@ -290,11 +307,11 @@ namespace SquadRush.EditorTools
 
         // ------------------------------------------------------------------ UI
 
-        static readonly Color Gold = new Color(1f, 0.84f, 0.3f);
-        static readonly Color Green = new Color(0.2f, 0.75f, 0.38f);
-        static readonly Color Blue = new Color(0.22f, 0.36f, 0.62f);
-        static readonly Color Purple = new Color(0.36f, 0.28f, 0.62f);
-        static readonly Color Grey = new Color(0.35f, 0.37f, 0.42f);
+        internal static readonly Color Gold = new Color(1f, 0.84f, 0.3f);
+        internal static readonly Color Green = new Color(0.2f, 0.75f, 0.38f);
+        internal static readonly Color Blue = new Color(0.22f, 0.36f, 0.62f);
+        internal static readonly Color Purple = new Color(0.36f, 0.28f, 0.62f);
+        internal static readonly Color Grey = new Color(0.35f, 0.37f, 0.42f);
 
         static GameUI BuildUI()
         {
@@ -321,6 +338,7 @@ namespace SquadRush.EditorTools
             ui.distanceText = Text(hud.transform, "Distance", "0 m", 72f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -95f), new Vector2(500f, 110f), Color.white, FontStyles.Bold);
             ui.coinsText = Text(hud.transform, "Coins", "$0", 60f, TextAlignmentOptions.Right, new Vector2(1f, 1f), new Vector2(-280f, -95f), new Vector2(500f, 110f), Gold, FontStyles.Bold);
             ui.statsText = Text(hud.transform, "Stats", "", 38f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -180f), new Vector2(900f, 70f), new Color(0.8f, 0.82f, 0.9f));
+            ui.scrapText = Text(hud.transform, "Scrap", "SCRAP 0", 40f, TextAlignmentOptions.Right, new Vector2(1f, 1f), new Vector2(-280f, -180f), new Vector2(500f, 70f), new Color(0.6f, 0.9f, 1f), FontStyles.Bold);
 
             // ---- Menu
             var menu = Panel(root, "Menu", new Color(0.05f, 0.07f, 0.12f, 0.88f));
@@ -330,15 +348,16 @@ namespace SquadRush.EditorTools
             ui.bestText = Text(menu.transform, "Best", "BEST 0 m", 50f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -600f), new Vector2(900f, 80f), Color.white, FontStyles.Bold);
             ui.bankText = Text(menu.transform, "Bank", "$0", 50f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -670f), new Vector2(900f, 80f), Gold, FontStyles.Bold);
 
-            Text(menu.transform, "UpgradesLabel", "UPGRADES", 44f, TextAlignmentOptions.Center, new Vector2(0.5f, 0.5f), new Vector2(0f, 190f), new Vector2(900f, 70f), new Color(0.8f, 0.82f, 0.9f), FontStyles.Bold);
+            Text(menu.transform, "UpgradesLabel", "UPGRADES", 44f, TextAlignmentOptions.Center, new Vector2(0.5f, 0.5f), new Vector2(0f, 210f), new Vector2(900f, 70f), new Color(0.8f, 0.82f, 0.9f), FontStyles.Bold);
             ui.upgradeButtons = new Button[3];
             ui.upgradeLabels = new TMP_Text[3];
             for (int i = 0; i < 3; i++)
             {
-                ui.upgradeButtons[i] = Btn(menu.transform, "Upgrade" + i, "Upgrade", new Vector2(0.5f, 0.5f), new Vector2(0f, 60f - i * 170f), new Vector2(880f, 150f), Blue, 44f, out var label);
+                ui.upgradeButtons[i] = Btn(menu.transform, "Upgrade" + i, "Upgrade", new Vector2(0.5f, 0.5f), new Vector2(0f, 90f - i * 160f), new Vector2(880f, 140f), Blue, 42f, out var label);
                 ui.upgradeLabels[i] = label;
             }
-            ui.playButton = Btn(menu.transform, "Play", "PLAY", new Vector2(0.5f, 0f), new Vector2(0f, 230f), new Vector2(760f, 190f), Green, 92f, out _);
+            ui.playButton = Btn(menu.transform, "Play", "PLAY", new Vector2(0.5f, 0f), new Vector2(0f, 300f), new Vector2(760f, 170f), Green, 84f, out _);
+            ui.arenaButton = Btn(menu.transform, "Arena", "ARENA MODE", new Vector2(0.5f, 0f), new Vector2(0f, 130f), new Vector2(760f, 130f), Purple, 56f, out _);
 
             // ---- Game over
             var over = Panel(root, "GameOver", new Color(0.16f, 0.03f, 0.06f, 0.9f));
@@ -370,7 +389,7 @@ namespace SquadRush.EditorTools
             return ui;
         }
 
-        static RectTransform Place(GameObject go, Vector2 anchor, Vector2 pos, Vector2 size)
+        internal static RectTransform Place(GameObject go, Vector2 anchor, Vector2 pos, Vector2 size)
         {
             var rt = go.GetComponent<RectTransform>();
             if (rt == null) rt = go.AddComponent<RectTransform>();
@@ -381,7 +400,7 @@ namespace SquadRush.EditorTools
             return rt;
         }
 
-        static GameObject Panel(Transform parent, string name, Color color)
+        internal static GameObject Panel(Transform parent, string name, Color color)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
@@ -397,7 +416,7 @@ namespace SquadRush.EditorTools
             return go;
         }
 
-        static TextMeshProUGUI Text(Transform parent, string name, string text, float size, TextAlignmentOptions align, Vector2 anchor, Vector2 pos, Vector2 sizeDelta, Color color, FontStyles style = FontStyles.Normal)
+        internal static TextMeshProUGUI Text(Transform parent, string name, string text, float size, TextAlignmentOptions align, Vector2 anchor, Vector2 pos, Vector2 sizeDelta, Color color, FontStyles style = FontStyles.Normal)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
@@ -413,7 +432,7 @@ namespace SquadRush.EditorTools
             return tmp;
         }
 
-        static Button Btn(Transform parent, string name, string label, Vector2 anchor, Vector2 pos, Vector2 size, Color color, float fontSize, out TextMeshProUGUI text)
+        internal static Button Btn(Transform parent, string name, string label, Vector2 anchor, Vector2 pos, Vector2 size, Color color, float fontSize, out TextMeshProUGUI text)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);

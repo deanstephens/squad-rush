@@ -33,6 +33,7 @@ namespace SquadRush
         public GameState State { get; private set; } = GameState.Menu;
         public float Distance { get; private set; }
         public int CoinsThisRun { get; private set; }
+        public int ScrapThisRun { get; private set; }
 
         void Awake()
         {
@@ -72,6 +73,7 @@ namespace SquadRush
             State = GameState.Playing;
             Distance = 0f;
             CoinsThisRun = 0;
+            ScrapThisRun = 0;
             Treadmill.Speed = baseSpeed;
             Treadmill.Running = true;
             director.BeginRun();
@@ -82,6 +84,12 @@ namespace SquadRush
         {
             if (State != GameState.Playing) return;
             CoinsThisRun += n;
+        }
+
+        public void AddScrap(int n)
+        {
+            if (State != GameState.Playing) return;
+            ScrapThisRun += n;
         }
 
         public void OnBossKilled()
@@ -112,14 +120,22 @@ namespace SquadRush
             Time.timeScale = 1f;
 
             MetaProgression.AddCoins(CoinsThisRun);
+            MetaProgression.AddScrap(ScrapThisRun);
             MetaProgression.RecordDistance(Distance);
-            ui.ShowGameOver(Distance, CoinsThisRun, MetaProgression.BestDistance);
+            ui.ShowGameOver(Distance, CoinsThisRun, ScrapThisRun, MetaProgression.BestDistance);
         }
 
         public void Retry()
         {
             autoStartNextLoad = true;
             Reload();
+        }
+
+        public void OpenArena()
+        {
+            Time.timeScale = 1f;
+            Treadmill.Reset();
+            SceneManager.LoadScene("Arena");
         }
 
         public void BackToMenu()

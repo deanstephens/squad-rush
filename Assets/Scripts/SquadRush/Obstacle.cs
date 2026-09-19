@@ -23,6 +23,7 @@ namespace SquadRush
         public float Health { get; private set; }
         public bool IsBoss { get; private set; }
         public int CoinValue { get; private set; }
+        public int ScrapValue { get; private set; }
 
         Color baseColor;
         Material mat;
@@ -31,11 +32,12 @@ namespace SquadRush
 
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
-        public void Setup(float health, Vector3 size, Color color, bool isBoss, int coins)
+        public void Setup(float health, Vector3 size, Color color, bool isBoss, int coins, int scrap)
         {
             MaxHealth = Health = health;
             IsBoss = isBoss;
             CoinValue = coins;
+            ScrapValue = scrap;
             baseColor = color;
 
             body.localScale = size;
@@ -76,7 +78,11 @@ namespace SquadRush
         {
             dead = true;
             var gm = GameManager.Instance;
-            if (gm != null) gm.AddCoins(CoinValue);
+            if (gm != null)
+            {
+                gm.AddCoins(CoinValue);
+                gm.AddScrap(ScrapValue);
+            }
             Fx.Burst(body.position, baseColor, IsBoss ? 20 : 8, IsBoss ? 0.3f : 0.18f);
             if (IsBoss && gm != null) gm.OnBossKilled();
             Destroy(gameObject);
