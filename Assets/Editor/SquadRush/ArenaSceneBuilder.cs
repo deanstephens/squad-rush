@@ -195,13 +195,12 @@ namespace SquadRush.EditorTools
             var root = canvasGo.transform;
             var dim = new Color(0.8f, 0.82f, 0.9f);
 
-            // ---- Armory / loadout
+            // ---- Armory
             var loadout = SceneBuilder.Panel(root, "Loadout", new Color(0.05f, 0.06f, 0.1f, 0.96f));
             ui.loadoutPanel = loadout;
-            SceneBuilder.Text(loadout.transform, "Title", "ARMORY", 96f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -120f), new Vector2(1000f, 130f), SceneBuilder.Gold, FontStyles.Bold);
-            ui.scrapText = SceneBuilder.Text(loadout.transform, "Scrap", "SCRAP 0", 46f, TextAlignmentOptions.Left, new Vector2(0f, 1f), new Vector2(300f, -230f), new Vector2(540f, 70f), new Color(0.6f, 0.9f, 1f), FontStyles.Bold);
-            ui.slotsText = SceneBuilder.Text(loadout.transform, "Slots", "LOADOUT 1 / 3", 46f, TextAlignmentOptions.Right, new Vector2(1f, 1f), new Vector2(-300f, -230f), new Vector2(540f, 70f), Color.white, FontStyles.Bold);
-            ui.bestText = SceneBuilder.Text(loadout.transform, "Best", "BEST 0:00", 36f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -290f), new Vector2(600f, 60f), dim);
+            SceneBuilder.Text(loadout.transform, "Title", "ARMORY", 80f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -85f), new Vector2(1000f, 110f), SceneBuilder.Gold, FontStyles.Bold);
+            ui.scrapText = SceneBuilder.Text(loadout.transform, "Scrap", "SCRAP 0", 42f, TextAlignmentOptions.Left, new Vector2(0f, 1f), new Vector2(300f, -165f), new Vector2(540f, 60f), new Color(0.6f, 0.9f, 1f), FontStyles.Bold);
+            ui.bestText = SceneBuilder.Text(loadout.transform, "Best", "BEST 0:00", 34f, TextAlignmentOptions.Right, new Vector2(1f, 1f), new Vector2(-300f, -165f), new Vector2(540f, 60f), dim);
 
             var guns = GunLibrary.All;
             ui.gunRows = new ArenaUI.GunRow[guns.Count];
@@ -209,23 +208,61 @@ namespace SquadRush.EditorTools
             {
                 var rowGo = new GameObject("Row_" + guns[i].Id);
                 rowGo.transform.SetParent(loadout.transform, false);
-                SceneBuilder.Place(rowGo, new Vector2(0.5f, 1f), new Vector2(0f, -420f - i * 185f), new Vector2(1000f, 170f));
+                SceneBuilder.Place(rowGo, new Vector2(0.5f, 1f), new Vector2(0f, -255f - i * 100f), new Vector2(1000f, 90f));
                 var bg = rowGo.AddComponent<Image>();
                 bg.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
                 bg.type = Image.Type.Sliced;
                 bg.pixelsPerUnitMultiplier = 0.5f;
-                bg.color = new Color(0.2f, 0.26f, 0.4f, 0.95f);
+                var btn = rowGo.AddComponent<Button>();
+                btn.targetGraphic = bg;
 
-                var row = new ArenaUI.GunRow { gunId = guns[i].Id, background = bg };
-                row.nameText = SceneBuilder.Text(rowGo.transform, "Name", guns[i].Name, 46f, TextAlignmentOptions.Left, new Vector2(0f, 1f), new Vector2(360f, -38f), new Vector2(680f, 60f), Color.white, FontStyles.Bold);
-                row.statsText = SceneBuilder.Text(rowGo.transform, "Stats", guns[i].StatsLine(), 26f, TextAlignmentOptions.TopLeft, new Vector2(0f, 1f), new Vector2(360f, -110f), new Vector2(680f, 90f), dim);
-                row.actionButton = SceneBuilder.Btn(rowGo.transform, "Action", "EQUIP", new Vector2(1f, 0.5f), new Vector2(-130f, 0f), new Vector2(230f, 130f), SceneBuilder.Green, 30f, out var label);
-                row.actionLabel = label;
+                var row = new ArenaUI.GunRow { gunId = guns[i].Id, background = bg, selectButton = btn };
+                row.nameText = SceneBuilder.Text(rowGo.transform, "Name", guns[i].Name, 40f, TextAlignmentOptions.Left, new Vector2(0f, 0.5f), new Vector2(330f, 0f), new Vector2(600f, 80f), Color.white, FontStyles.Bold);
+                row.stateText = SceneBuilder.Text(rowGo.transform, "State", "", 30f, TextAlignmentOptions.Right, new Vector2(1f, 0.5f), new Vector2(-250f, 0f), new Vector2(460f, 80f), Color.white, FontStyles.Bold);
                 ui.gunRows[i] = row;
             }
 
-            ui.startButton = SceneBuilder.Btn(loadout.transform, "Start", "ENTER ARENA", new Vector2(0.5f, 0f), new Vector2(0f, 200f), new Vector2(760f, 160f), SceneBuilder.Green, 66f, out _);
-            ui.hubButton = SceneBuilder.Btn(loadout.transform, "Hub", "BACK TO TREADMILL", new Vector2(0.5f, 0f), new Vector2(0f, 75f), new Vector2(760f, 90f), SceneBuilder.Grey, 36f, out _);
+            // detail panel for the viewed gun
+            float dy = -255f - guns.Count * 100f - 10f;   // top of the detail block
+            var detail = new GameObject("Detail");
+            detail.transform.SetParent(loadout.transform, false);
+            SceneBuilder.Place(detail, new Vector2(0.5f, 1f), new Vector2(0f, dy - 385f), new Vector2(1000f, 770f));
+            var dbg = detail.AddComponent<Image>();
+            dbg.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+            dbg.type = Image.Type.Sliced;
+            dbg.pixelsPerUnitMultiplier = 0.5f;
+            dbg.color = new Color(0.1f, 0.11f, 0.17f, 0.95f);
+            dbg.raycastTarget = false;
+
+            ui.detailName = SceneBuilder.Text(detail.transform, "Name", "Pistol", 46f, TextAlignmentOptions.Left, new Vector2(0f, 1f), new Vector2(490f, -40f), new Vector2(940f, 60f), Color.white, FontStyles.Bold);
+            ui.detailDesc = SceneBuilder.Text(detail.transform, "Desc", "", 28f, TextAlignmentOptions.Left, new Vector2(0f, 1f), new Vector2(490f, -85f), new Vector2(940f, 40f), dim);
+            ui.detailStats = SceneBuilder.Text(detail.transform, "Stats", "", 26f, TextAlignmentOptions.Left, new Vector2(0f, 1f), new Vector2(490f, -125f), new Vector2(940f, 40f), new Color(0.6f, 0.9f, 1f));
+            ui.upgradeButton = SceneBuilder.Btn(detail.transform, "Upgrade", "UPGRADE", new Vector2(0.5f, 1f), new Vector2(0f, -205f), new Vector2(940f, 90f), SceneBuilder.Blue, 34f, out var upLabel);
+            ui.upgradeLabel = upLabel;
+            SceneBuilder.Text(detail.transform, "ModsLabel", "MODS", 30f, TextAlignmentOptions.Left, new Vector2(0f, 1f), new Vector2(490f, -280f), new Vector2(940f, 40f), dim, FontStyles.Bold);
+
+            ui.modRows = new ArenaUI.ModRow[4];
+            for (int j = 0; j < 4; j++)
+            {
+                var mrow = new GameObject("Mod" + j);
+                mrow.transform.SetParent(detail.transform, false);
+                SceneBuilder.Place(mrow, new Vector2(0.5f, 1f), new Vector2(0f, -350f - j * 105f), new Vector2(940f, 95f));
+                var mbg = mrow.AddComponent<Image>();
+                mbg.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+                mbg.type = Image.Type.Sliced;
+                mbg.pixelsPerUnitMultiplier = 0.5f;
+                mbg.raycastTarget = false;
+                var m = new ArenaUI.ModRow { background = mbg };
+                m.nameText = SceneBuilder.Text(mrow.transform, "Name", "Mod", 32f, TextAlignmentOptions.Left, new Vector2(0f, 1f), new Vector2(345f, -28f), new Vector2(650f, 44f), Color.white, FontStyles.Bold);
+                m.descText = SceneBuilder.Text(mrow.transform, "Desc", "", 24f, TextAlignmentOptions.Left, new Vector2(0f, 1f), new Vector2(345f, -66f), new Vector2(650f, 40f), dim);
+                m.buyButton = SceneBuilder.Btn(mrow.transform, "Buy", "BUY", new Vector2(1f, 0.5f), new Vector2(-105f, 0f), new Vector2(190f, 78f), SceneBuilder.Green, 26f, out var buyLabel);
+                m.buyLabel = buyLabel;
+                ui.modRows[j] = m;
+            }
+
+            ui.startButton = SceneBuilder.Btn(loadout.transform, "Start", "ENTER ARENA", new Vector2(0.5f, 0f), new Vector2(0f, 140f), new Vector2(760f, 130f), SceneBuilder.Green, 52f, out var startLabel);
+            ui.startLabel = startLabel;
+            ui.hubButton = SceneBuilder.Btn(loadout.transform, "Hub", "BACK TO TREADMILL", new Vector2(0.5f, 0f), new Vector2(0f, 45f), new Vector2(760f, 60f), SceneBuilder.Grey, 28f, out _);
 
             // ---- HUD
             var hud = SceneBuilder.Panel(root, "HUD", Color.clear);

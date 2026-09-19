@@ -39,8 +39,11 @@ namespace SquadRush.Arena
         public float XpToNext { get; private set; }
 
         readonly Stack<ArenaBullet> bulletPool = new Stack<ArenaBullet>();
+        readonly Dictionary<string, int> taken = new Dictionary<string, int>();
         Transform bulletRoot, gemRoot;
         ArenaUpgrade[] offered;
+
+        public int TimesTaken(string id) => taken.TryGetValue(id, out var n) ? n : 0;
 
         void Awake()
         {
@@ -80,13 +83,9 @@ namespace SquadRush.Arena
         {
             if (State == ArenaState.Playing) return;
 
-            var defs = new List<GunDef>();
-            foreach (var id in MetaProgression.EquippedGuns)
-            {
-                var d = GunLibrary.Get(id);
-                if (d != null) defs.Add(d);
-            }
-            if (defs.Count == 0) defs.Add(GunLibrary.Get(GunLibrary.DefaultGunId));
+            var def = GunLibrary.Get(MetaProgression.SelectedGun) ?? GunLibrary.Get(GunLibrary.DefaultGunId);
+            var stats = GunLibrary.BuildMetaStats(def);
+            taken.Clear();
 
             TimeSurvived = 0f;
             Kills = 0;
@@ -96,7 +95,7 @@ namespace SquadRush.Arena
             XpToNext = firstLevelXp;
 
             player.hp = player.maxHp;
-            player.EquipGuns(defs);
+            player.EquipGun(def, stats);
             spawner.Begin(player);
 
             State = ArenaState.Playing;
@@ -139,7 +138,9 @@ namespace SquadRush.Arena
         public void ChooseUpgrade(int index)
         {
             if (State != ArenaState.LevelUp || offered == null || index < 0 || index >= offered.Length) return;
-            offered[index].Apply(this);
+            var u = offered[index];
+            u.Apply(this);
+            taken[u.Id] = TimesTaken(u.Id) + 1;
             offered = null;
             Time.timeScale = 1f;
             State = ArenaState.Playing;

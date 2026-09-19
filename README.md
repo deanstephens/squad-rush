@@ -15,12 +15,22 @@ buy permanent upgrades (start units, damage, fire rate) on the main menu.
 
 ## Arena mode
 
-Open it from the main menu with **ARENA MODE**. Before a run the **Armory** lets you unlock guns
-with Scrap and equip up to three. In the arena you drag anywhere as a virtual joystick (or WASD),
-guns auto-aim at the nearest enemy, kills drop XP gems, and each level-up offers one of three
-upgrades (global stats or per-gun boosts). Elites arrive every minute. The run ends at 0 HP.
+Open it from the main menu with **ARENA MODE**. The **Armory** is the pre-run screen:
 
-Guns are defined in code in `GunLibrary`; enemies in `EnemyLibrary`; level-up options in
+- Tap a gun to equip it. You carry **one** gun into the arena.
+- Locked guns are unlocked with Scrap. Each gun then has **5 upgrade levels** (+10% damage and
+  +5% fire rate per level) and **4 purchasable mods** (permanent stat changes such as the Shotgun's
+  Choke or the SMG's Incendiary Rounds). Scrap only comes from treadmill runs, so the two modes
+  feed each other.
+- In the arena you drag anywhere as a virtual joystick (or WASD). The gun auto-aims at the nearest
+  enemy, kills drop XP gems, and each level-up offers three upgrades: up to two from the equipped
+  gun's own perk list (Focus Fire for the Pistol, Tight Choke for the Shotgun, Line 'Em Up for the
+  Rifle, Spin Up for the Minigun, Cluster Bombs for the Rocket Launcher, and so on) plus generic
+  survival perks. Elites arrive every minute. The run ends at 0 HP.
+
+Guns, their mods and their run perks are all defined in `GunLibrary`; the mechanics they touch
+(crits, focus stacks, ricochet, burn, slow, knockback, heat ramps, cluster blasts) live in `Gun`,
+`ArenaBullet` and `Enemy`. Enemies are in `EnemyLibrary`; generic level-up options in
 `ArenaUpgrades`. Spawn pacing lives on the `EnemySpawner` scene object.
 
 ## Project layout
@@ -47,8 +57,8 @@ Guns are defined in code in `GunLibrary`; enemies in `EnemyLibrary`; level-up op
 - `PowerUpGate` – positive/negative stat gates, improved by shooting them.
 - `LevelDirector` – streams chunks: obstacle patterns, gate pairs every 3rd chunk, boss every 9th. Difficulty scales with distance.
 - `Perk` / `PerkLibrary` – the boss-reward perks (run only).
-- `MetaProgression` – PlayerPrefs-backed coins, Scrap, best scores, permanent upgrade levels, unlocked guns and the arena loadout.
-- `GunLibrary` – the buyable guns and their stats (shared by the Armory and the arena).
+- `MetaProgression` – PlayerPrefs-backed coins, Scrap, best scores, treadmill upgrade levels, unlocked guns, gun levels, owned mods and the selected arena gun.
+- `GunLibrary` – the guns, their stats, purchasable mods and run perks (shared by the Armory and the arena).
 - `GameUI` – HUD, menu with upgrade shop, perk picker, game over screen.
 
 ## Tuning knobs

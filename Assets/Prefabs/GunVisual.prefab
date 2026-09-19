@@ -137,10 +137,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d088359187dfe4bce87544d8f23da3db, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SquadRush.Arena.Gun
-  damageMult: 1
-  fireRateMult: 1
-  extraBullets: 0
-  extraPierce: 0
 --- !u!1 &5945313115533607594
 GameObject:
   m_ObjectHideFlags: 0

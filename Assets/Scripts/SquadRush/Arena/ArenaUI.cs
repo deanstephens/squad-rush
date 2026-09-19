@@ -12,20 +12,37 @@ namespace SquadRush.Arena
         {
             public string gunId;
             public Image background;
+            public Button selectButton;
             public TMP_Text nameText;
-            public TMP_Text statsText;
-            public Button actionButton;
-            public TMP_Text actionLabel;
+            public TMP_Text stateText;
         }
 
-        [Header("Loadout")]
+        [System.Serializable]
+        public class ModRow
+        {
+            public Image background;
+            public TMP_Text nameText;
+            public TMP_Text descText;
+            public Button buyButton;
+            public TMP_Text buyLabel;
+        }
+
+        [Header("Armory")]
         public GameObject loadoutPanel;
         public TMP_Text scrapText;
-        public TMP_Text slotsText;
         public TMP_Text bestText;
         public GunRow[] gunRows;
+        public TMP_Text detailName;
+        public TMP_Text detailDesc;
+        public TMP_Text detailStats;
+        public Button upgradeButton;
+        public TMP_Text upgradeLabel;
+        public ModRow[] modRows;
         public Button startButton;
+        public TMP_Text startLabel;
         public Button hubButton;
+
+        string viewedGunId;
 
         [Header("HUD")]
         public GameObject hudPanel;
@@ -49,10 +66,6 @@ namespace SquadRush.Arena
         public Button retryButton;
         public Button armoryButton;
 
-        static readonly Color RowLocked = new Color(0.16f, 0.17f, 0.22f, 0.95f);
-        static readonly Color RowUnlocked = new Color(0.2f, 0.26f, 0.4f, 0.95f);
-        static readonly Color RowEquipped = new Color(0.16f, 0.45f, 0.3f, 0.95f);
-
         void Awake()
         {
             if (startButton) startButton.onClick.AddListener(() => ArenaManager.Instance.StartRun());
@@ -68,7 +81,13 @@ namespace SquadRush.Arena
             foreach (var row in gunRows)
             {
                 var r = row;
-                r.actionButton.onClick.AddListener(() => OnGunAction(r));
+                r.selectButton.onClick.AddListener(() => ViewGun(r.gunId));
+            }
+            if (upgradeButton) upgradeButton.onClick.AddListener(OnUpgrade);
+            for (int i = 0; i < modRows.Length; i++)
+            {
+                int idx = i;
+                modRows[i].buyButton.onClick.AddListener(() => OnBuyMod(idx));
             }
         }
 
@@ -82,82 +101,124 @@ namespace SquadRush.Arena
 
         // ---------------------------------------------------------------- armory
 
+        static readonly Color RowLocked = new Color(0.16f, 0.17f, 0.22f, 0.95f);
+        static readonly Color RowUnlocked = new Color(0.2f, 0.26f, 0.4f, 0.95f);
+        static readonly Color RowSelected = new Color(0.16f, 0.45f, 0.3f, 0.95f);
+        static readonly Color RowViewed = new Color(0.3f, 0.36f, 0.55f, 0.95f);
+
         public void ShowLoadout()
         {
             SetPanels(true, false, false, false);
             if (bestText) bestText.text = "BEST  " + ArenaManager.FormatTime(MetaProgression.BestArenaTime);
+            viewedGunId = MetaProgression.SelectedGun;
+            RefreshArmory();
+        }
+
+        void ViewGun(string id)
+        {
+            viewedGunId = id;
+            // Selecting an unlocked gun equips it; a locked one is just previewed until unlocked.
+            if (MetaProgression.IsGunUnlocked(id)) MetaProgression.SelectedGun = id;
             RefreshArmory();
         }
 
         void RefreshArmory()
         {
-            var equipped = MetaProgression.EquippedGuns;
             int scrap = MetaProgression.Scrap;
+            string selected = MetaProgression.SelectedGun;
             if (scrapText) scrapText.text = "SCRAP  " + scrap;
-            if (slotsText) slotsText.text = "LOADOUT  " + equipped.Count + " / " + MetaProgression.LoadoutSlots;
 
             foreach (var row in gunRows)
             {
                 var def = GunLibrary.Get(row.gunId);
                 if (def == null) continue;
                 bool unlocked = MetaProgression.IsGunUnlocked(def.Id);
-                bool isEquipped = equipped.Contains(def.Id);
+                bool isSelected = def.Id == selected;
+                bool isViewed = def.Id == viewedGunId;
 
                 if (row.nameText) row.nameText.text = def.Name;
-                if (row.statsText) row.statsText.text = def.StatsLine() + "\n<size=85%><color=#B8BCD0>" + def.Description + "</color></size>";
+                if (row.stateText)
+                    row.stateText.text = !unlocked ? "<color=#B8BCD0>LOCKED  " + def.Cost + " SCRAP</color>"
+                                       : isSelected ? "EQUIPPED  <size=80%>Lv " + MetaProgression.GunLevel(def.Id) + "</size>"
+                                       : "<size=80%>Lv " + MetaProgression.GunLevel(def.Id) + "</size>";
+                row.background.color = isSelected ? RowSelected : isViewed ? RowViewed : unlocked ? RowUnlocked : RowLocked;
+            }
 
+            var viewed = GunLibrary.Get(viewedGunId) ?? GunLibrary.Get(GunLibrary.DefaultGunId);
+            RefreshDetail(viewed, scrap);
+
+            bool canStart = MetaProgression.IsGunUnlocked(selected);
+            if (startButton) startButton.interactable = canStart;
+            if (startLabel) startLabel.text = "ENTER ARENA\n<size=55%>" + (GunLibrary.Get(selected)?.Name ?? "") + "</size>";
+        }
+
+        void RefreshDetail(GunDef def, int scrap)
+        {
+            bool unlocked = MetaProgression.IsGunUnlocked(def.Id);
+            int lvl = MetaProgression.GunLevel(def.Id);
+            var stats = GunLibrary.BuildMetaStats(def);
+
+            if (detailName) detailName.text = def.Name + "  <size=60%>Lv " + lvl + " / " + GunDef.MaxLevel + "</size>";
+            if (detailDesc) detailDesc.text = def.Description;
+            if (detailStats) detailStats.text = def.StatsLine(stats);
+
+            if (upgradeButton && upgradeLabel)
+            {
                 if (!unlocked)
                 {
-                    row.background.color = RowLocked;
-                    row.actionLabel.text = "UNLOCK\n<size=75%>" + def.Cost + " SCRAP</size>";
-                    row.actionButton.interactable = scrap >= def.Cost;
+                    upgradeLabel.text = "UNLOCK  <size=75%>" + def.Cost + " SCRAP</size>";
+                    upgradeButton.interactable = scrap >= def.Cost;
                 }
-                else if (isEquipped)
+                else if (lvl >= GunDef.MaxLevel)
                 {
-                    row.background.color = RowEquipped;
-                    row.actionLabel.text = "EQUIPPED";
-                    row.actionButton.interactable = equipped.Count > 1;
+                    upgradeLabel.text = "MAX LEVEL";
+                    upgradeButton.interactable = false;
                 }
                 else
                 {
-                    row.background.color = RowUnlocked;
-                    row.actionLabel.text = "EQUIP";
-                    row.actionButton.interactable = equipped.Count < MetaProgression.LoadoutSlots;
+                    int cost = def.UpgradeCost(lvl);
+                    upgradeLabel.text = "UPGRADE TO Lv " + (lvl + 1) + "  <size=75%>+" + Mathf.RoundToInt(GunDef.DamagePerLevel * 100f) + "% DMG  +" + Mathf.RoundToInt(GunDef.FireRatePerLevel * 100f) + "% RATE  ·  " + cost + " SCRAP</size>";
+                    upgradeButton.interactable = scrap >= cost;
                 }
+            }
+
+            for (int i = 0; i < modRows.Length; i++)
+            {
+                var row = modRows[i];
+                bool has = i < def.Mods.Count;
+                row.background.gameObject.SetActive(has);
+                if (!has) continue;
+                var mod = def.Mods[i];
+                bool owned = MetaProgression.HasMod(mod.Id);
+                row.nameText.text = mod.Name;
+                row.descText.text = mod.Description;
+                row.buyLabel.text = owned ? "OWNED" : "BUY\n<size=75%>" + mod.Cost + " SCRAP</size>";
+                row.buyButton.interactable = !owned && unlocked && scrap >= mod.Cost;
+                row.background.color = owned ? RowSelected : RowUnlocked;
             }
         }
 
-        void OnGunAction(GunRow row)
+        void OnUpgrade()
         {
-            var def = GunLibrary.Get(row.gunId);
+            var def = GunLibrary.Get(viewedGunId);
             if (def == null) return;
-            var equipped = MetaProgression.EquippedGuns;
-
             if (!MetaProgression.IsGunUnlocked(def.Id))
             {
                 if (MetaProgression.TrySpendScrap(def.Cost))
                 {
                     MetaProgression.UnlockGun(def.Id);
-                    if (equipped.Count < MetaProgression.LoadoutSlots)
-                    {
-                        equipped.Add(def.Id);
-                        MetaProgression.EquippedGuns = equipped;
-                    }
+                    MetaProgression.SelectedGun = def.Id;
                 }
             }
-            else if (equipped.Contains(def.Id))
-            {
-                if (equipped.Count > 1)
-                {
-                    equipped.Remove(def.Id);
-                    MetaProgression.EquippedGuns = equipped;
-                }
-            }
-            else if (equipped.Count < MetaProgression.LoadoutSlots)
-            {
-                equipped.Add(def.Id);
-                MetaProgression.EquippedGuns = equipped;
-            }
+            else MetaProgression.TryUpgradeGun(def);
+            RefreshArmory();
+        }
+
+        void OnBuyMod(int index)
+        {
+            var def = GunLibrary.Get(viewedGunId);
+            if (def == null || index >= def.Mods.Count) return;
+            MetaProgression.TryBuyMod(def.Mods[index]);
             RefreshArmory();
         }
 

@@ -28,13 +28,14 @@ namespace SquadRush.Arena
         public float fireRateMult = 1f;
         public int extraPierce;
         public float regenPerSecond;
+        public float damageTakenMult = 1f;
 
         [Header("Input")]
         [Tooltip("Drag this fraction of the screen width for full joystick deflection.")]
         public float joystickFraction = 0.12f;
 
         public float Radius => 0.45f;
-        public readonly List<Gun> Guns = new List<Gun>();
+        public Gun Gun { get; private set; }
 
         Rigidbody rb;
         Vector2 pressOrigin;
@@ -53,44 +54,31 @@ namespace SquadRush.Arena
             rb.useGravity = false;
         }
 
-        public void EquipGuns(List<GunDef> defs)
+        public void EquipGun(GunDef def, GunStats stats)
         {
-            foreach (var g in Guns) if (g != null) Destroy(g.gameObject);
-            Guns.Clear();
+            if (Gun != null) Destroy(Gun.gameObject);
 
-            int n = defs.Count;
-            for (int i = 0; i < n; i++)
+            var go = gunVisualPrefab != null ? Instantiate(gunVisualPrefab, transform) : new GameObject("Gun");
+            go.name = "Gun_" + def.Id;
+            go.transform.SetParent(transform, false);
+            go.transform.localPosition = new Vector3(0.28f, 0.55f, 0.4f);
+
+            var gun = go.GetComponent<Gun>();
+            if (gun == null) gun = go.AddComponent<Gun>();
+            gun.Init(def, stats, this, go.transform.Find("Muzzle"));
+
+            var tip = go.transform.Find("Tip");
+            if (tip != null)
             {
-                var go = gunVisualPrefab != null ? Instantiate(gunVisualPrefab, transform) : new GameObject("Gun");
-                go.name = "Gun_" + defs[i].Id;
-                go.transform.SetParent(transform, false);
-                float angle = n == 1 ? 0f : -40f + 80f * i / (n - 1);
-                go.transform.localPosition = Quaternion.Euler(0f, angle, 0f) * new Vector3(0f, 0.55f, 0.45f);
-
-                var gun = go.GetComponent<Gun>();
-                if (gun == null) gun = go.AddComponent<Gun>();
-                var muzzle = go.transform.Find("Muzzle");
-                gun.Init(defs[i], this, muzzle);
-
-                var tip = go.transform.Find("Tip");
-                if (tip != null)
+                var r = tip.GetComponent<Renderer>();
+                if (r != null)
                 {
-                    var r = tip.GetComponent<Renderer>();
-                    if (r != null)
-                    {
-                        var mpb = new MaterialPropertyBlock();
-                        mpb.SetColor(BaseColorId, defs[i].Color);
-                        r.SetPropertyBlock(mpb);
-                    }
+                    var mpb = new MaterialPropertyBlock();
+                    mpb.SetColor(BaseColorId, def.Color);
+                    r.SetPropertyBlock(mpb);
                 }
-                Guns.Add(gun);
             }
-        }
-
-        public Gun FindGun(string id)
-        {
-            foreach (var g in Guns) if (g.Def.Id == id) return g;
-            return null;
+            Gun = gun;
         }
 
         void Update()
@@ -170,7 +158,7 @@ namespace SquadRush.Arena
             var am = ArenaManager.Instance;
             if (am == null || am.State != ArenaState.Playing || invulnTimer > 0f) return;
             invulnTimer = hitInvulnerability;
-            hp -= amount;
+            hp -= amount * damageTakenMult;
             flashTimer = 0.1f;
             SetColor(Color.white);
             am.NotifyHud();

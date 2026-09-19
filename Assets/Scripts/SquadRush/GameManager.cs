@@ -119,6 +119,7 @@ namespace SquadRush
             Treadmill.Running = false;
             Time.timeScale = 1f;
 
+            ScrapThisRun += Mathf.FloorToInt(Distance / 25f);
             MetaProgression.AddCoins(CoinsThisRun);
             MetaProgression.AddScrap(ScrapThisRun);
             MetaProgression.RecordDistance(Distance);

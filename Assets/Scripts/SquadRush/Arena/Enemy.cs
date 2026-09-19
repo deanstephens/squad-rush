@@ -29,11 +29,15 @@ namespace SquadRush.Arena
 
         public float Radius { get; private set; } = 0.45f;
         public bool Dead { get; private set; }
+        public float HpFraction => maxHp > 0f ? hp / maxHp : 0f;
 
         EnemyDef def;
         float hp, maxHp, speed;
         float contactCooldown;
         float flashTimer;
+        float burnDps, burnTimer, burnTick;
+        float slowPct, slowTimer;
+        Vector3 knock;
         Rigidbody rb;
         ArenaPlayer player;
 
@@ -47,6 +51,8 @@ namespace SquadRush.Arena
             maxHp = hp = def.Hp * hpMult;
             speed = def.Speed;
             Dead = false;
+            burnDps = burnTimer = slowPct = slowTimer = 0f;
+            knock = Vector3.zero;
 
             transform.localScale = Vector3.one * def.Scale;
             Radius = 0.45f * def.Scale;
@@ -73,7 +79,9 @@ namespace SquadRush.Arena
             dir.y = 0f;
             float dist = dir.magnitude;
             if (dist > 0.01f) dir /= dist;
-            rb.linearVelocity = dir * speed;
+            float slow = slowTimer > 0f ? 1f - slowPct : 1f;
+            rb.linearVelocity = dir * (speed * slow) + knock;
+            knock *= Mathf.Exp(-8f * Time.fixedDeltaTime);
             if (dir.sqrMagnitude > 0.01f) rb.MoveRotation(Quaternion.LookRotation(dir, Vector3.up));
         }
 
@@ -88,7 +96,23 @@ namespace SquadRush.Arena
             var am = ArenaManager.Instance;
             if (Dead || am == null || am.State != ArenaState.Playing || player == null) return;
 
-            contactCooldown -= Time.deltaTime;
+            float dt = Time.deltaTime;
+            if (slowTimer > 0f) slowTimer -= dt;
+            if (burnTimer > 0f)
+            {
+                burnTimer -= dt;
+                burnTick -= dt;
+                if (burnTick <= 0f)
+                {
+                    burnTick = 0.25f;
+                    hp -= burnDps * 0.25f;
+                    SetColor(new Color(1f, 0.5f, 0.1f));
+                    flashTimer = 0.08f;
+                    if (hp <= 0f) { Die(); return; }
+                }
+            }
+
+            contactCooldown -= dt;
             if (contactCooldown > 0f) return;
 
             float reach = Radius + player.Radius + 0.15f;
@@ -108,6 +132,26 @@ namespace SquadRush.Arena
             flashTimer = 0.06f;
             SetColor(Color.white);
             if (hp <= 0f) Die();
+        }
+
+        public void ApplyBurn(float dps, float duration)
+        {
+            if (Dead) return;
+            burnDps = Mathf.Max(burnDps * Mathf.Clamp01(burnTimer / Mathf.Max(duration, 0.01f)), dps);
+            burnTimer = Mathf.Max(burnTimer, duration);
+        }
+
+        public void ApplySlow(float pct, float duration)
+        {
+            if (Dead) return;
+            slowPct = Mathf.Max(slowPct, pct);
+            slowTimer = Mathf.Max(slowTimer, duration);
+        }
+
+        public void Knockback(Vector3 impulse)
+        {
+            if (Dead) return;
+            knock += impulse / Mathf.Max(0.5f, def.Scale * def.Scale);
         }
 
         void Die()
@@ -149,6 +193,40 @@ namespace SquadRush.Arena
                 }
             }
             return best;
+        }
+
+        public static Enemy NearestExcluding(Vector3 pos, float range, List<Enemy> exclude)
+        {
+            Enemy best = null;
+            float bestD = range * range;
+            for (int i = 0; i < All.Count; i++)
+            {
+                var e = All[i];
+                if (e == null || e.Dead || exclude.Contains(e)) continue;
+                Vector3 d = e.transform.position - pos;
+                d.y = 0f;
+                float d2 = d.sqrMagnitude;
+                if (d2 < bestD)
+                {
+                    bestD = d2;
+                    best = e;
+                }
+            }
+            return best;
+        }
+
+        public static void CollectInRadius(Vector3 pos, float radius, List<Enemy> into)
+        {
+            into.Clear();
+            float r2 = radius * radius;
+            for (int i = 0; i < All.Count; i++)
+            {
+                var e = All[i];
+                if (e == null || e.Dead) continue;
+                Vector3 d = e.transform.position - pos;
+                d.y = 0f;
+                if (d.sqrMagnitude <= r2) into.Add(e);
+            }
         }
 
         public static void DamageInRadius(Vector3 pos, float radius, float damage)

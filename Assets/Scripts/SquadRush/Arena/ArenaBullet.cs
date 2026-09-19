@@ -10,27 +10,30 @@ namespace SquadRush.Arena
     /// </summary>
     public class ArenaBullet : MonoBehaviour
     {
+        Gun gun;
         Vector3 dir;
-        float speed, damage, life, radius, splash;
-        int pierce;
+        float speed, life, radius, splash;
+        int pierce, bounces, pierced;
         Action<ArenaBullet> onFinished;
         Renderer rend;
         readonly List<Enemy> hit = new List<Enemy>();
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         static MaterialPropertyBlock mpb;
 
-        public void Launch(Vector3 pos, Vector3 direction, float speed, float damage, int pierce, float life, float scale, float splash, Color color, Action<ArenaBullet> onFinished)
+        public void Launch(Gun gun, Vector3 pos, Vector3 direction, float speed, int pierce, float life, float scale, float splash, int bounces, Color color, Action<ArenaBullet> onFinished)
         {
+            this.gun = gun;
             transform.position = pos;
             transform.localScale = Vector3.one * 0.25f * scale;
             radius = 0.125f * scale;
             dir = direction.normalized;
             this.speed = speed;
-            this.damage = damage;
             this.pierce = pierce;
             this.life = life;
             this.splash = splash;
+            this.bounces = bounces;
             this.onFinished = onFinished;
+            pierced = 0;
             hit.Clear();
 
             if (rend == null) rend = GetComponent<Renderer>();
@@ -58,7 +61,6 @@ namespace SquadRush.Arena
                 var e = all[i];
                 if (e == null || e.Dead || hit.Contains(e)) continue;
 
-                // Closest point on the sweep segment to the enemy centre.
                 Vector3 ep = e.transform.position;
                 ep.y = 0f;
                 float t = segLen2 > 0.0001f ? Mathf.Clamp01(Vector3.Dot(ep - flatFrom, seg) / segLen2) : 0f;
@@ -67,15 +69,32 @@ namespace SquadRush.Arena
                 if ((ep - closest).sqrMagnitude > r * r) continue;
 
                 hit.Add(e);
+
                 if (splash > 0f)
                 {
-                    Enemy.DamageInRadius(closest, splash, damage);
-                    Fx.Burst(closest + Vector3.up * 0.5f, new Color(1f, 0.6f, 0.2f), 6, 0.2f);
+                    gun.ApplySplash(closest, splash);
                     Finish();
                     return;
                 }
 
-                e.TakeDamage(damage);
+                gun.ApplyHit(e, dir, pierced);
+                pierced++;
+
+                if (bounces > 0)
+                {
+                    var next = Enemy.NearestExcluding(closest, 7f, hit);
+                    if (next != null)
+                    {
+                        bounces--;
+                        Vector3 nd = next.transform.position - closest;
+                        nd.y = 0f;
+                        dir = nd.normalized;
+                        transform.position = new Vector3(closest.x, from.y, closest.z);
+                        life = Mathf.Max(life, 8f / speed);
+                        return;
+                    }
+                }
+
                 if (pierce <= 0)
                 {
                     Finish();

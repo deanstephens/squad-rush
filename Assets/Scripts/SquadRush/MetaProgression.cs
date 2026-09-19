@@ -69,7 +69,6 @@ namespace SquadRush
         const string ScrapKey = "sr_scrap";
         const string LoadoutKey = "sr_loadout";
         const string BestArenaKey = "sr_best_arena";
-        public const int LoadoutSlots = 3;
 
         /// <summary>Materials gathered in treadmill runs. Spent in the Armory on guns.</summary>
         public static int Scrap
@@ -115,23 +114,42 @@ namespace SquadRush
             PlayerPrefs.Save();
         }
 
-        /// <summary>Gun ids equipped for the arena, in slot order. Always contains at least one unlocked gun.</summary>
-        public static List<string> EquippedGuns
+        /// <summary>The single gun carried into the arena. Falls back to the pistol if the saved one is locked.</summary>
+        public static string SelectedGun
         {
             get
             {
-                var result = new List<string>();
-                foreach (var id in PlayerPrefs.GetString(LoadoutKey, GunLibrary.DefaultGunId).Split(','))
-                    if (GunLibrary.Get(id) != null && IsGunUnlocked(id) && !result.Contains(id) && result.Count < LoadoutSlots)
-                        result.Add(id);
-                if (result.Count == 0) result.Add(GunLibrary.DefaultGunId);
-                return result;
+                string id = PlayerPrefs.GetString(LoadoutKey, GunLibrary.DefaultGunId);
+                return GunLibrary.Get(id) != null && IsGunUnlocked(id) ? id : GunLibrary.DefaultGunId;
             }
             set
             {
-                PlayerPrefs.SetString(LoadoutKey, string.Join(",", value));
+                PlayerPrefs.SetString(LoadoutKey, value);
                 PlayerPrefs.Save();
             }
+        }
+
+        public static int GunLevel(string id) => PlayerPrefs.GetInt("sr_gunlvl_" + id, 0);
+
+        public static bool TryUpgradeGun(GunDef def)
+        {
+            int lvl = GunLevel(def.Id);
+            if (lvl >= GunDef.MaxLevel) return false;
+            if (!TrySpendScrap(def.UpgradeCost(lvl))) return false;
+            PlayerPrefs.SetInt("sr_gunlvl_" + def.Id, lvl + 1);
+            PlayerPrefs.Save();
+            return true;
+        }
+
+        public static bool HasMod(string modId) => PlayerPrefs.GetInt("sr_mod_" + modId, 0) == 1;
+
+        public static bool TryBuyMod(GunMod mod)
+        {
+            if (HasMod(mod.Id)) return false;
+            if (!TrySpendScrap(mod.Cost)) return false;
+            PlayerPrefs.SetInt("sr_mod_" + mod.Id, 1);
+            PlayerPrefs.Save();
+            return true;
         }
 
         public static void AddCoins(int n)

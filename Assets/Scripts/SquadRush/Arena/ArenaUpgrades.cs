@@ -7,52 +7,71 @@ namespace SquadRush.Arena
     /// <summary>One level-up option in the arena.</summary>
     public class ArenaUpgrade
     {
+        public string Id;
         public string Title;
         public string Description;
+        public int MaxStacks;
+        public bool IsGunPerk;
         public Action<ArenaManager> Apply;
 
-        public ArenaUpgrade(string title, string description, Action<ArenaManager> apply)
+        public ArenaUpgrade(string id, string title, string description, Action<ArenaManager> apply, int maxStacks = 1, bool isGunPerk = false)
         {
+            Id = id;
             Title = title;
             Description = description;
             Apply = apply;
+            MaxStacks = maxStacks;
+            IsGunPerk = isGunPerk;
         }
     }
 
     public static class ArenaUpgrades
     {
-        static List<ArenaUpgrade> Generic(ArenaManager am) => new List<ArenaUpgrade>
+        static readonly List<ArenaUpgrade> Generic = new List<ArenaUpgrade>
         {
-            new ArenaUpgrade("Firepower", "+20% damage on all guns", m => m.player.damageMult *= 1.2f),
-            new ArenaUpgrade("Trigger Finger", "+15% fire rate on all guns", m => m.player.fireRateMult *= 1.15f),
-            new ArenaUpgrade("Sprint", "+12% move speed", m => m.player.moveSpeed *= 1.12f),
-            new ArenaUpgrade("Toughness", "+25 max HP and heal 25", m => { m.player.maxHp += 25f; m.player.Heal(25f); }),
-            new ArenaUpgrade("Medkit", "Heal 50% of max HP", m => m.player.Heal(m.player.maxHp * 0.5f)),
-            new ArenaUpgrade("Magnet", "+40% pickup radius", m => m.player.pickupRadius *= 1.4f),
-            new ArenaUpgrade("Regeneration", "+1 HP per second", m => m.player.regenPerSecond += 1f),
-            new ArenaUpgrade("Armor-Piercing", "All bullets pierce +1 enemy", m => m.player.extraPierce += 1),
+            new ArenaUpgrade("gen_tough", "Toughness", "+25 max HP and heal 25", m => { m.player.maxHp += 25f; m.player.Heal(25f); }, 4),
+            new ArenaUpgrade("gen_medkit", "Medkit", "Heal 50% of max HP", m => m.player.Heal(m.player.maxHp * 0.5f), 99),
+            new ArenaUpgrade("gen_sprint", "Sprint", "+12% move speed", m => m.player.moveSpeed *= 1.12f, 3),
+            new ArenaUpgrade("gen_magnet", "Magnet", "+40% pickup radius", m => m.player.pickupRadius *= 1.4f, 3),
+            new ArenaUpgrade("gen_regen", "Regeneration", "+1 HP per second", m => m.player.regenPerSecond += 1f, 3),
+            new ArenaUpgrade("gen_armor", "Armor", "Take 15% less damage", m => m.player.damageTakenMult *= 0.85f, 3),
         };
 
+        /// <summary>Three options: up to two from the equipped gun's own perk list, the rest generic.</summary>
         public static ArenaUpgrade[] RollThree(ArenaManager am)
         {
-            var pool = Generic(am);
-            foreach (var gun in am.player.Guns)
+            var gunPool = new List<ArenaUpgrade>();
+            var gun = am.player.Gun;
+            if (gun != null)
             {
-                string id = gun.Def.Id;
-                string name = gun.Def.Name;
-                pool.Add(new ArenaUpgrade(name + " +1", "+1 projectile per shot for " + name, m => { var g = m.player.FindGun(id); if (g != null) g.extraBullets += 1; }));
-                pool.Add(new ArenaUpgrade(name + " Power", "+35% damage for " + name, m => { var g = m.player.FindGun(id); if (g != null) g.damageMult *= 1.35f; }));
-                pool.Add(new ArenaUpgrade(name + " Speed", "+30% fire rate for " + name, m => { var g = m.player.FindGun(id); if (g != null) g.fireRateMult *= 1.3f; }));
+                foreach (var perk in gun.Def.Perks)
+                {
+                    var p = perk;
+                    if (am.TimesTaken(p.Id) >= p.MaxStacks) continue;
+                    gunPool.Add(new ArenaUpgrade(p.Id, p.Title, p.Description, m => p.Apply(m.player.Gun.Stats), p.MaxStacks, true));
+                }
             }
+            var genericPool = new List<ArenaUpgrade>();
+            foreach (var g in Generic)
+                if (am.TimesTaken(g.Id) < g.MaxStacks) genericPool.Add(g);
 
-            var result = new ArenaUpgrade[Mathf.Min(3, pool.Count)];
-            for (int i = 0; i < result.Length; i++)
+            var result = new List<ArenaUpgrade>();
+            int gunCount = Mathf.Min(2, gunPool.Count);
+            for (int i = 0; i < gunCount; i++) result.Add(TakeRandom(gunPool));
+            while (result.Count < 3 && (genericPool.Count > 0 || gunPool.Count > 0))
             {
-                int idx = UnityEngine.Random.Range(0, pool.Count);
-                result[i] = pool[idx];
-                pool.RemoveAt(idx);
+                bool useGun = genericPool.Count == 0 || (gunPool.Count > 0 && UnityEngine.Random.value < 0.35f);
+                result.Add(TakeRandom(useGun ? gunPool : genericPool));
             }
-            return result;
+            return result.ToArray();
+        }
+
+        static ArenaUpgrade TakeRandom(List<ArenaUpgrade> pool)
+        {
+            int idx = UnityEngine.Random.Range(0, pool.Count);
+            var u = pool[idx];
+            pool.RemoveAt(idx);
+            return u;
         }
     }
 }
