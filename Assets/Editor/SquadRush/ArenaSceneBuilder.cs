@@ -270,7 +270,8 @@ namespace SquadRush.EditorTools
             ui.timerText = SceneBuilder.Text(hud.transform, "Timer", "0:00", 76f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -95f), new Vector2(500f, 110f), Color.white, FontStyles.Bold);
             ui.levelText = SceneBuilder.Text(hud.transform, "Level", "LV 1", 52f, TextAlignmentOptions.Left, new Vector2(0f, 1f), new Vector2(230f, -95f), new Vector2(400f, 110f), Color.white, FontStyles.Bold);
             ui.coinsText = SceneBuilder.Text(hud.transform, "Coins", "$0", 52f, TextAlignmentOptions.Right, new Vector2(1f, 1f), new Vector2(-230f, -95f), new Vector2(400f, 110f), SceneBuilder.Gold, FontStyles.Bold);
-            ui.killsText = SceneBuilder.Text(hud.transform, "Kills", "0 KILLS", 36f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -165f), new Vector2(500f, 60f), dim);
+            ui.killsText = SceneBuilder.Text(hud.transform, "Kills", "0 KILLS", 36f, TextAlignmentOptions.Right, new Vector2(1f, 1f), new Vector2(-230f, -165f), new Vector2(400f, 60f), dim);
+            ui.waveText = SceneBuilder.Text(hud.transform, "Wave", "WAVE 1", 44f, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0f, -165f), new Vector2(620f, 60f), SceneBuilder.Gold, FontStyles.Bold);
 
             ui.xpFill = SceneBuilder.Bar(hud.transform, "XpBar", new Vector2(0.5f, 1f), new Vector2(0f, -215f), new Vector2(980f, 22f), new Color(0.35f, 1f, 0.7f));
             ui.hpFill = SceneBuilder.Bar(hud.transform, "HpBar", new Vector2(0.5f, 0f), new Vector2(0f, 110f), new Vector2(760f, 40f), new Color(0.95f, 0.3f, 0.3f));

@@ -32,7 +32,8 @@ namespace SquadRush.Arena
         public float HpFraction => maxHp > 0f ? hp / maxHp : 0f;
 
         EnemyDef def;
-        float hp, maxHp, speed;
+        float hp, maxHp, speed, contactDamage;
+        bool enraged;
         float contactCooldown;
         float flashTimer;
         float burnDps, burnTimer, burnTick;
@@ -50,6 +51,8 @@ namespace SquadRush.Arena
             this.player = player;
             maxHp = hp = def.Hp * hpMult;
             speed = def.Speed;
+            contactDamage = def.ContactDamage;
+            enraged = false;
             Dead = false;
             burnDps = burnTimer = slowPct = slowTimer = 0f;
             knock = Vector3.zero;
@@ -90,7 +93,7 @@ namespace SquadRush.Arena
             if (flashTimer > 0f)
             {
                 flashTimer -= Time.deltaTime;
-                if (flashTimer <= 0f) SetColor(def.Color);
+                if (flashTimer <= 0f) SetColor(enraged ? EnragedColor : def.Color);
             }
 
             var am = ArenaManager.Instance;
@@ -120,7 +123,7 @@ namespace SquadRush.Arena
             d.y = 0f;
             if (d.sqrMagnitude <= reach * reach)
             {
-                player.TakeDamage(def.ContactDamage);
+                player.TakeDamage(contactDamage);
                 contactCooldown = 0.7f;
             }
         }
@@ -132,6 +135,19 @@ namespace SquadRush.Arena
             flashTimer = 0.06f;
             SetColor(Color.white);
             if (hp <= 0f) Die();
+        }
+
+        static readonly Color EnragedColor = new Color(0.9f, 0.1f, 0.1f);
+
+        /// <summary>Boss timeout: faster, twice the bite, and unmistakably red.</summary>
+        public void Enrage()
+        {
+            if (Dead || enraged) return;
+            enraged = true;
+            speed *= 1.6f;
+            contactDamage *= 2f;
+            SetColor(EnragedColor);
+            Fx.Burst(transform.position + Vector3.up * 1f, EnragedColor, 16, 0.25f);
         }
 
         public void ApplyBurn(float dps, float duration)

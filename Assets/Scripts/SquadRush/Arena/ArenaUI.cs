@@ -53,6 +53,7 @@ namespace SquadRush.Arena
         public Image xpFill;
         public TMP_Text killsText;
         public TMP_Text coinsText;
+        public TMP_Text waveText;
 
         [Header("Level Up")]
         public GameObject levelUpPanel;
@@ -109,7 +110,7 @@ namespace SquadRush.Arena
         public void ShowLoadout()
         {
             SetPanels(true, false, false, false);
-            if (bestText) bestText.text = "BEST  " + ArenaManager.FormatTime(MetaProgression.BestArenaTime);
+            if (bestText) bestText.text = "BEST  WAVE " + MetaProgression.BestArenaWave;
             viewedGunId = MetaProgression.SelectedGun;
             RefreshArmory();
         }
@@ -243,6 +244,23 @@ namespace SquadRush.Arena
             if (xpFill) xpFill.fillAmount = am.XpToNext > 0f ? Mathf.Clamp01(am.Xp / am.XpToNext) : 0f;
             if (killsText) killsText.text = am.Kills + " KILLS";
             if (coinsText) coinsText.text = "$" + am.CoinsThisRun;
+            if (waveText) waveText.text = WaveLine(am.spawner);
+        }
+
+        static string WaveLine(EnemySpawner sp)
+        {
+            if (sp == null) return "";
+            switch (sp.Phase)
+            {
+                case WavePhase.Countdown:
+                    return (sp.NextIsBoss ? "<color=#FF5A5A>BOSS</color> IN " : "WAVE " + (sp.WaveNumber + 1) + " IN ") + Mathf.CeilToInt(sp.PhaseTimer);
+                case WavePhase.Active:
+                    return "WAVE " + sp.WaveNumber + "   <size=80%>" + sp.Remaining + " LEFT</size>";
+                case WavePhase.Boss:
+                    float t = sp.EnrageIn;
+                    return "<color=#FF5A5A>BOSS</color>   <size=80%>" + (t > 0f ? "ENRAGE IN " + Mathf.CeilToInt(t) : "<color=#FF5A5A>ENRAGED</color>") + "</size>";
+            }
+            return "";
         }
 
         // ---------------------------------------------------------------- level up
@@ -262,14 +280,14 @@ namespace SquadRush.Arena
 
         // ---------------------------------------------------------------- game over
 
-        public void ShowGameOver(float time, int kills, int coins, float best)
+        public void ShowGameOver(int wave, float time, int kills, int coins, int bestWave)
         {
             SetPanels(false, false, false, true);
             if (resultText)
-                resultText.text = "SURVIVED " + ArenaManager.FormatTime(time) + "\n" +
-                                  kills + " KILLS\n" +
+                resultText.text = "WAVE " + wave + "\n" +
+                                  "<size=70%>SURVIVED " + ArenaManager.FormatTime(time) + "   ·   " + kills + " KILLS</size>\n" +
                                   "+$" + coins + "\n" +
-                                  "<size=60%>BEST " + ArenaManager.FormatTime(best) + "</size>";
+                                  "<size=60%>BEST WAVE " + bestWave + "</size>";
         }
     }
 }

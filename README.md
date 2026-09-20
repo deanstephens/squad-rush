@@ -33,12 +33,16 @@ Open it from the main menu with **ARENA MODE**. The **Armory** is the pre-run sc
   enemy, kills drop XP gems, and each level-up offers three upgrades: up to two from the equipped
   gun's own perk list (Focus Fire for the Pistol, Tight Choke for the Shotgun, Line 'Em Up for the
   Rifle, Spin Up for the Minigun, Cluster Bombs for the Rocket Launcher, and so on) plus generic
-  survival perks. Elites arrive every minute. The run ends at 0 HP.
+  survival perks. The run ends at 0 HP.
+- Enemies come in **waves**: each wave bursts in its roster, then the arena stays quiet until it is
+  cleared (a 45 s cap stops stragglers stalling the run). Wave size and HP scale with the wave
+  number. Every fifth wave is a **boss**: the next wave waits for it to die, and it enrages after
+  30 s (faster, double damage), so it is a damage check.
 
 Guns, their mods and their run perks are all defined in `GunLibrary`; the mechanics they touch
 (crits, focus stacks, ricochet, burn, slow, knockback, heat ramps, cluster blasts) live in `Gun`,
 `ArenaBullet` and `Enemy`. Enemies are in `EnemyLibrary`; generic level-up options in
-`ArenaUpgrades`. Spawn pacing lives on the `EnemySpawner` scene object.
+`ArenaUpgrades`. Wave pacing, sizes and boss timing live on the `EnemySpawner` scene object.
 
 ## Project layout
 

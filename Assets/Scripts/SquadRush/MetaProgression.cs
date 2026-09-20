@@ -111,6 +111,17 @@ namespace SquadRush
             return true;
         }
 
+        public static int BestArenaWave => PlayerPrefs.GetInt("sr_best_wave", 0);
+
+        public static void RecordArenaWave(int wave)
+        {
+            if (wave > BestArenaWave)
+            {
+                PlayerPrefs.SetInt("sr_best_wave", wave);
+                PlayerPrefs.Save();
+            }
+        }
+
         public static void RecordArenaTime(float seconds)
         {
             if (seconds > BestArenaTime)

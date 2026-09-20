@@ -157,7 +157,8 @@ namespace SquadRush.Arena
 
             MetaProgression.AddCoins(CoinsThisRun);
             MetaProgression.RecordArenaTime(TimeSurvived);
-            ui.ShowGameOver(TimeSurvived, Kills, CoinsThisRun, MetaProgression.BestArenaTime);
+            MetaProgression.RecordArenaWave(spawner.WaveNumber);
+            ui.ShowGameOver(spawner.WaveNumber, TimeSurvived, Kills, CoinsThisRun, MetaProgression.BestArenaWave);
         }
 
         public void Retry()
