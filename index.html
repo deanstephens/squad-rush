@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Squad Rush</title>
+    <style>
+      html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #0f1218; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+      #unity-container { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+      #unity-canvas { background: #0f1218; display: block; }
+      #unity-loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #e8e9ef; font: 600 18px system-ui, -apple-system, Segoe UI, Roboto, sans-serif; letter-spacing: 0.08em; }
+      #unity-progress { width: 60%; max-width: 320px; height: 6px; background: #232733; border-radius: 3px; margin-top: 14px; overflow: hidden; }
+      #unity-progress-fill { width: 0; height: 100%; background: #f2c94c; transition: width 0.15s; }
+      #unity-warning { position: fixed; left: 0; right: 0; top: 0; text-align: center; font: 14px system-ui, sans-serif; }
+      #unity-warning div { display: inline-block; margin: 8px; padding: 8px 12px; border-radius: 6px; background: #f2c94c; color: #111; }
+    </style>
+  </head>
+  <body>
+    <div id="unity-container">
+      <canvas id="unity-canvas" tabindex="-1"></canvas>
+    </div>
+    <div id="unity-loading">
+      <div>Squad Rush</div>
+      <div id="unity-progress"><div id="unity-progress-fill"></div></div>
+    </div>
+    <div id="unity-warning"></div>
+    <script>
+      var container = document.querySelector("#unity-container");
+      var canvas = document.querySelector("#unity-canvas");
+      var loading = document.querySelector("#unity-loading");
+      var progressFill = document.querySelector("#unity-progress-fill");
+      var warningBanner = document.querySelector("#unity-warning");
+
+      function unityShowBanner(msg, type) {
+        var div = document.createElement("div");
+        div.innerHTML = msg;
+        warningBanner.appendChild(div);
+        if (type == "error") div.style.background = "#e05555";
+        else setTimeout(function () { warningBanner.removeChild(div); }, 5000);
+      }
+
+      // Keep a phone-like portrait aspect on wide screens; fill the window on phones.
+      function resizeCanvas() {
+        var w = window.innerWidth, h = window.innerHeight;
+        var targetAspect = 9 / 16;
+        var cw = w, ch = h;
+        if (w / h > targetAspect) { cw = Math.round(h * targetAspect); ch = h; }
+        canvas.style.width = cw + "px";
+        canvas.style.height = ch + "px";
+      }
+      window.addEventListener("resize", resizeCanvas);
+      resizeCanvas();
+
+      // Every build gets a fresh version stamp so browsers never pair a cached glue script
+      // with a newer wasm binary (GitHub Pages caches files for 10 minutes).
+      var buildUrl = "Build";
+      var v = "?v=" + encodeURIComponent("20260920.0738");
+      var loaderUrl = buildUrl + "/Web.loader.js" + v;
+      var config = {
+        arguments: [],
+        dataUrl: buildUrl + "/Web.data" + v,
+        frameworkUrl: buildUrl + "/Web.framework.js" + v,
+        codeUrl: buildUrl + "/Web.wasm" + v,
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "DeanStephens",
+        productName: "Squad Rush",
+        productVersion: "20260920.0738",
+        showBanner: unityShowBanner,
+        matchWebGLToCanvasSize: true,
+        devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+      };
+
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = function () {
+        createUnityInstance(canvas, config, function (progress) {
+          progressFill.style.width = Math.round(progress * 100) + "%";
+        }).then(function (unityInstance) {
+          loading.style.display = "none";
+        }).catch(function (message) {
+          unityShowBanner(message, "error");
+        });
+      };
+      document.body.appendChild(script);
+    </script>
+  </body>
+</html>
