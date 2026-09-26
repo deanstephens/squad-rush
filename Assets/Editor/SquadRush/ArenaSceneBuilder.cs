@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using SquadRush.Arena;
 using TMPro;
 using UnityEditor;
@@ -22,9 +23,6 @@ namespace SquadRush.EditorTools
             System.IO.Directory.CreateDirectory(SceneBuilder.MatDir);
             System.IO.Directory.CreateDirectory(SceneBuilder.PrefabDir);
 
-            var matPlayer = SceneBuilder.Lit("ArenaPlayer", new Color(0.3f, 0.65f, 1f));
-            var matGunBody = SceneBuilder.Lit("ArenaGun", new Color(0.12f, 0.14f, 0.2f));
-            var matEnemy = SceneBuilder.Lit("ArenaEnemy", new Color(0.95f, 0.4f, 0.35f));
             var matBullet = SceneBuilder.Lit("ArenaBullet", Color.white, emissive: Color.white * 0.8f);
             var matGem = SceneBuilder.Lit("ArenaGem", new Color(0.35f, 1f, 0.7f), emissive: new Color(0.2f, 1f, 0.6f) * 1.2f);
             var matFloorA = SceneBuilder.Lit("ArenaFloorA", new Color(0.24f, 0.27f, 0.34f));
@@ -32,21 +30,27 @@ namespace SquadRush.EditorTools
             var matWall = SceneBuilder.Lit("ArenaWall", new Color(0.55f, 0.5f, 0.35f));
             var matDebris = AssetDatabase.LoadAssetAtPath<Material>(SceneBuilder.MatDir + "/Debris.mat") ?? SceneBuilder.Lit("Debris", Color.white);
 
-            var gunVisual = BuildGunVisualPrefab(matGunBody, matBullet);
-            var enemyPrefab = BuildEnemyPrefab(matEnemy);
+            var hero1 = ModelKit.HeroController(false);
+            var hero2 = ModelKit.HeroController(true);
+            var skelCtrl = ModelKit.SkeletonController();
+            var grunt = BuildArenaEnemy("ArenaEnemy_Grunt", "Skeleton_Minion", "Skel_Blade", null, skelCtrl);
+            var runner = BuildArenaEnemy("ArenaEnemy_Runner", "Skeleton_Rogue", null, null, skelCtrl);
+            var brute = BuildArenaEnemy("ArenaEnemy_Brute", "Skeleton_Warrior", "Skel_Axe", "Skel_Shield", skelCtrl);
+            var elite = BuildArenaEnemy("ArenaEnemy_Elite", "Skeleton_Mage", "Skel_Staff", null, skelCtrl);
             var bulletPrefab = BuildBulletPrefab(matBullet);
             var gemPrefab = BuildGemPrefab(matGem);
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
 
             var cam = Camera.main;
-            cam.transform.position = new Vector3(0f, 17f, -9f);
-            cam.transform.rotation = Quaternion.Euler(62f, 0f, 0f);
+            cam.transform.position = new Vector3(0f, 13.5f, -7.5f);
+            cam.transform.rotation = Quaternion.Euler(61f, 0f, 0f);
             cam.fieldOfView = 55f;
             cam.farClipPlane = 150f;
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.07f, 0.08f, 0.12f);
             var follow = cam.gameObject.AddComponent<ArenaCameraFollow>();
+            follow.offset = new Vector3(0f, 13.5f, -7.5f);
 
             var light = Object.FindFirstObjectByType<Light>();
             if (light != null)
@@ -70,21 +74,41 @@ namespace SquadRush.EditorTools
             pcap.center = new Vector3(0f, 0.6f, 0f);
             pcap.radius = 0.45f;
             pcap.height = 1.2f;
-            var visual = SceneBuilder.Primitive(PrimitiveType.Capsule, "Visual", playerGo.transform, new Vector3(0f, 0.6f, 0f), new Vector3(0.9f, 0.6f, 0.9f), matPlayer, false);
-            SceneBuilder.Primitive(PrimitiveType.Sphere, "Visor", visual.transform, new Vector3(0f, 0.55f, 0.35f), new Vector3(0.5f, 0.3f, 0.5f), matGunBody, false);
-            player.visual = visual.transform;
-            player.bodyRenderer = visual.GetComponent<Renderer>();
-            player.gunVisualPrefab = gunVisual;
+            var model = ModelKit.Character("Hero_RogueHooded", playerGo.transform, 1.6f, hero2);
+            var guns = GunLibrary.All;
+            player.gunIds = new string[guns.Count];
+            player.gunModels = new GameObject[guns.Count];
+            player.gunMuzzles = new Transform[guns.Count];
+            player.gunTwoHanded = new bool[guns.Count];
+            for (int i = 0; i < guns.Count; i++)
+            {
+                var muzzle = ModelKit.AttachGun(model, guns[i].Id, 1.15f);
+                player.gunIds[i] = guns[i].Id;
+                player.gunMuzzles[i] = muzzle;
+                player.gunModels[i] = muzzle.parent.gameObject;
+                player.gunTwoHanded[i] = ModelKit.TwoHandedGuns.Contains(guns[i].Id);
+                muzzle.parent.gameObject.SetActive(i == 0);
+            }
+            player.visual = model.transform.parent;
+            player.renderers = ModelKit.ModelRenderers(playerGo);
+            player.animator = model.GetComponent<Animator>();
+            player.oneHandedController = hero1;
+            player.twoHandedController = hero2;
             player.arenaHalfSize = HalfSize - 1f;
             follow.target = playerGo.transform;
 
             // ---- systems
             var spawnerGo = new GameObject("EnemySpawner");
             var spawner = spawnerGo.AddComponent<EnemySpawner>();
-            spawner.enemyPrefab = enemyPrefab;
+            spawner.enemyPrefab = grunt;
+            spawner.gruntPrefab = grunt;
+            spawner.runnerPrefab = runner;
+            spawner.brutePrefab = brute;
+            spawner.elitePrefab = elite;
             spawner.arenaHalfSize = HalfSize - 1f;
 
             var ui = BuildUI();
+            ModelKit.AudioHubFor("music_arena");
 
             var amGo = new GameObject("ArenaManager");
             var am = amGo.AddComponent<ArenaManager>();
@@ -104,24 +128,9 @@ namespace SquadRush.EditorTools
 
         // ------------------------------------------------------------------ prefabs
 
-        static GameObject BuildGunVisualPrefab(Material body, Material tip)
+        static Enemy BuildArenaEnemy(string name, string model, string rightHand, string leftHand, RuntimeAnimatorController controller)
         {
-            var root = new GameObject("GunVisual");
-            root.AddComponent<Gun>();
-            SceneBuilder.Primitive(PrimitiveType.Cube, "Body", root.transform, new Vector3(0f, 0f, 0.2f), new Vector3(0.16f, 0.16f, 0.55f), body, false);
-            var t = SceneBuilder.Primitive(PrimitiveType.Cube, "Tip", root.transform, new Vector3(0f, 0f, 0.5f), new Vector3(0.12f, 0.12f, 0.12f), tip, false);
-            var muzzle = new GameObject("Muzzle").transform;
-            muzzle.SetParent(root.transform, false);
-            muzzle.localPosition = new Vector3(0f, 0f, 0.6f);
-            string path = SceneBuilder.PrefabDir + "/GunVisual.prefab";
-            var saved = PrefabUtility.SaveAsPrefabAsset(root, path);
-            Object.DestroyImmediate(root);
-            return saved;
-        }
-
-        static Enemy BuildEnemyPrefab(Material mat)
-        {
-            var root = new GameObject("Enemy");
+            var root = new GameObject(name);
             var rb = root.AddComponent<Rigidbody>();
             rb.useGravity = false;
             rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ | RigidbodyConstraints.FreezePositionY;
@@ -133,10 +142,12 @@ namespace SquadRush.EditorTools
             cap.height = 1.1f;
             var enemy = root.AddComponent<Enemy>();
 
-            var body = SceneBuilder.Primitive(PrimitiveType.Capsule, "Body", root.transform, new Vector3(0f, 0.55f, 0f), new Vector3(0.85f, 0.55f, 0.85f), mat, false);
-            SceneBuilder.Primitive(PrimitiveType.Cube, "Eye", body.transform, new Vector3(0f, 0.5f, 0.4f), new Vector3(0.5f, 0.2f, 0.3f), SceneBuilder.Lit("ArenaGun", new Color(0.12f, 0.14f, 0.2f)), false);
-            enemy.bodyRenderer = body.GetComponent<Renderer>();
-            return SceneBuilder.SavePrefab<Enemy>(root, "Enemy");
+            var m = ModelKit.Character(model, root.transform, 1.3f, controller);
+            if (rightHand != null) ModelKit.AttachProp(m, rightHand, "handslot.r");
+            if (leftHand != null) ModelKit.AttachProp(m, leftHand, "handslot.l");
+            enemy.renderers = ModelKit.ModelRenderers(root);
+            enemy.animator = m.GetComponent<Animator>();
+            return SceneBuilder.SavePrefab<Enemy>(root, name);
         }
 
         static ArenaBullet BuildBulletPrefab(Material mat)
@@ -217,7 +228,14 @@ namespace SquadRush.EditorTools
                 btn.targetGraphic = bg;
 
                 var row = new ArenaUI.GunRow { gunId = guns[i].Id, background = bg, selectButton = btn };
-                row.nameText = SceneBuilder.Text(rowGo.transform, "Name", guns[i].Name, 40f, TextAlignmentOptions.Left, new Vector2(0f, 0.5f), new Vector2(330f, 0f), new Vector2(600f, 80f), Color.white, FontStyles.Bold);
+                var iconGo = new GameObject("Icon");
+                iconGo.transform.SetParent(rowGo.transform, false);
+                SceneBuilder.Place(iconGo, new Vector2(0f, 0.5f), new Vector2(70f, 0f), new Vector2(84f, 84f));
+                row.icon = iconGo.AddComponent<Image>();
+                row.icon.sprite = GunIcon(guns[i].Id);
+                row.icon.preserveAspect = true;
+                row.icon.raycastTarget = false;
+                row.nameText = SceneBuilder.Text(rowGo.transform, "Name", guns[i].Name, 40f, TextAlignmentOptions.Left, new Vector2(0f, 0.5f), new Vector2(430f, 0f), new Vector2(540f, 80f), Color.white, FontStyles.Bold);
                 row.stateText = SceneBuilder.Text(rowGo.transform, "State", "", 30f, TextAlignmentOptions.Right, new Vector2(1f, 0.5f), new Vector2(-250f, 0f), new Vector2(460f, 80f), Color.white, FontStyles.Bold);
                 ui.gunRows[i] = row;
             }
@@ -234,9 +252,16 @@ namespace SquadRush.EditorTools
             dbg.color = new Color(0.1f, 0.11f, 0.17f, 0.95f);
             dbg.raycastTarget = false;
 
-            ui.detailName = SceneBuilder.Text(detail.transform, "Name", "Pistol", 46f, TextAlignmentOptions.Left, new Vector2(0f, 1f), new Vector2(490f, -40f), new Vector2(940f, 60f), Color.white, FontStyles.Bold);
-            ui.detailDesc = SceneBuilder.Text(detail.transform, "Desc", "", 28f, TextAlignmentOptions.Left, new Vector2(0f, 1f), new Vector2(490f, -85f), new Vector2(940f, 40f), dim);
-            ui.detailStats = SceneBuilder.Text(detail.transform, "Stats", "", 26f, TextAlignmentOptions.Left, new Vector2(0f, 1f), new Vector2(490f, -125f), new Vector2(940f, 40f), new Color(0.6f, 0.9f, 1f));
+            var detailIconGo = new GameObject("Icon");
+            detailIconGo.transform.SetParent(detail.transform, false);
+            SceneBuilder.Place(detailIconGo, new Vector2(1f, 1f), new Vector2(-95f, -80f), new Vector2(150f, 150f));
+            ui.detailIcon = detailIconGo.AddComponent<Image>();
+            ui.detailIcon.preserveAspect = true;
+            ui.detailIcon.raycastTarget = false;
+            ui.gunIcons = guns.Select(g => GunIcon(g.Id)).ToArray();
+            ui.detailName = SceneBuilder.Text(detail.transform, "Name", "Pistol", 46f, TextAlignmentOptions.Left, new Vector2(0f, 1f), new Vector2(410f, -40f), new Vector2(780f, 60f), Color.white, FontStyles.Bold);
+            ui.detailDesc = SceneBuilder.Text(detail.transform, "Desc", "", 28f, TextAlignmentOptions.Left, new Vector2(0f, 1f), new Vector2(410f, -85f), new Vector2(780f, 40f), dim);
+            ui.detailStats = SceneBuilder.Text(detail.transform, "Stats", "", 24f, TextAlignmentOptions.Left, new Vector2(0f, 1f), new Vector2(410f, -125f), new Vector2(780f, 40f), new Color(0.6f, 0.9f, 1f));
             ui.upgradeButton = SceneBuilder.Btn(detail.transform, "Upgrade", "UPGRADE", new Vector2(0.5f, 1f), new Vector2(0f, -205f), new Vector2(940f, 90f), SceneBuilder.Blue, 34f, out var upLabel);
             ui.upgradeLabel = upLabel;
             SceneBuilder.Text(detail.transform, "ModsLabel", "MODS", 30f, TextAlignmentOptions.Left, new Vector2(0f, 1f), new Vector2(490f, -280f), new Vector2(940f, 40f), dim, FontStyles.Bold);
@@ -263,6 +288,8 @@ namespace SquadRush.EditorTools
             ui.startButton = SceneBuilder.Btn(loadout.transform, "Start", "ENTER ARENA", new Vector2(0.5f, 0f), new Vector2(0f, 140f), new Vector2(760f, 130f), SceneBuilder.Green, 52f, out var startLabel);
             ui.startLabel = startLabel;
             ui.hubButton = SceneBuilder.Btn(loadout.transform, "Hub", "BACK TO TREADMILL", new Vector2(0.5f, 0f), new Vector2(0f, 45f), new Vector2(760f, 60f), SceneBuilder.Grey, 28f, out _);
+            ui.muteButton = SceneBuilder.Btn(loadout.transform, "Mute", "SOUND ON", new Vector2(1f, 1f), new Vector2(-120f, -60f), new Vector2(200f, 64f), SceneBuilder.Grey, 24f, out var muteLabel);
+            ui.muteLabel = muteLabel;
 
             // ---- HUD
             var hud = SceneBuilder.Panel(root, "HUD", Color.clear);
@@ -306,5 +333,8 @@ namespace SquadRush.EditorTools
             over.SetActive(false);
             return ui;
         }
+
+        static Sprite GunIcon(string gunId) =>
+            AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Icons/Icon_" + gunId + ".png");
     }
 }

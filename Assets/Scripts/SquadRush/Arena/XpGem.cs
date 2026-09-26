@@ -34,6 +34,7 @@ namespace SquadRush.Arena
                 transform.position += to / Mathf.Max(dist, 0.001f) * step;
                 if (dist < 0.5f)
                 {
+                    Sfx.Play(SfxId.XpPickup, 0.3f, 0.12f);
                     am.AddXp(value);
                     Destroy(gameObject);
                     return;

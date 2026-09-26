@@ -29,6 +29,9 @@ namespace SquadRush.Arena
 
         public float Range => Def.Range * Stats.rangeMult;
 
+        /// <summary>Nearest enemy in range this frame (the player turns to face it).</summary>
+        public Enemy Target { get; private set; }
+
         void Update()
         {
             var am = ArenaManager.Instance;
@@ -37,30 +40,32 @@ namespace SquadRush.Arena
             float dt = Time.deltaTime;
             firedThisFrame = false;
             timer -= dt;
+            Target = Enemy.Nearest(owner.transform.position, Range);
 
-            var target = timer <= 0f ? Enemy.Nearest(transform.position, Range) : null;
-            if (target != null)
+            if (timer <= 0f && Target != null)
             {
                 float rate = Def.FireRate * Stats.fireRateMult * owner.fireRateMult * (1f + heat);
                 timer = 1f / Mathf.Max(0.1f, rate);
 
-                Vector3 dir = target.transform.position - transform.position;
+                Vector3 dir = Target.transform.position - owner.transform.position;
                 dir.y = 0f;
-                if (dir.sqrMagnitude < 0.001f) dir = transform.forward;
+                if (dir.sqrMagnitude < 0.001f) dir = owner.transform.forward;
                 dir.Normalize();
-                transform.rotation = Quaternion.LookRotation(dir, Vector3.up);
                 Fire(dir);
                 firedThisFrame = true;
             }
+            else if (timer < 0f) timer = 0f;
 
             // Heat: ramps while a target keeps the gun busy, cools quickly when idle.
             if (Stats.heatMax > 0f)
             {
-                bool busy = firedThisFrame || Enemy.Nearest(transform.position, Range) != null;
+                bool busy = firedThisFrame || Target != null;
                 heat = busy ? Mathf.Min(Stats.heatMax, heat + Stats.heatRampPerSec * dt)
                             : Mathf.Max(0f, heat - Stats.heatMax * 1.5f * dt);
             }
         }
+
+        static float ShotVolume(string id) => id == "minigun" ? 0.4f : id == "smg" ? 0.5f : id == "rocket" || id == "shotgun" ? 0.85f : 0.7f;
 
         void Fire(Vector3 dir)
         {
@@ -71,6 +76,7 @@ namespace SquadRush.Arena
             float scale = Def.BulletScale * Stats.bulletScaleMult;
             float spread = Def.Spread * Stats.spreadMult;
             Vector3 pos = muzzle != null ? muzzle.position : transform.position + Vector3.up * 0.5f;
+            Sfx.Play(SfxId.Gun(Def.Id), ShotVolume(Def.Id), 0.07f);
 
             for (int i = 0; i < n; i++)
             {
@@ -135,6 +141,7 @@ namespace SquadRush.Arena
                 ApplyHit(e, push.sqrMagnitude > 0.001f ? push.normalized : Vector3.forward, 0);
             }
             Fx.Burst(point + Vector3.up * 0.5f, new Color(1f, 0.6f, 0.2f), 8, 0.22f);
+            Sfx.Play(SfxId.Explosion, 0.6f, 0.1f);
 
             for (int i = 0; i < Stats.clusterCount; i++)
             {

@@ -14,6 +14,8 @@ namespace SquadRush
     {
         [Header("Prefabs")]
         public Unit unitPrefab;
+        [Tooltip("Mixed hero variants; the squad cycles through them.")]
+        public Unit[] unitPrefabs;
         public Projectile projectilePrefab;
 
         [Header("Formation")]
@@ -65,6 +67,7 @@ namespace SquadRush
         float targetX;
         bool dragging;
         float lastPointerX;
+        bool animShooting;
 
         void Awake()
         {
@@ -100,11 +103,18 @@ namespace SquadRush
         {
             if (shields > 0)
             {
+                Sfx.Play(SfxId.GateBad, 0.5f);
                 shields--;
                 Changed?.Invoke();
                 return;
             }
+            Sfx.Play(SfxId.UnitLost, 0.8f);
             SetUnitCount(UnitCount - lost);
+        }
+
+        public void Cheer()
+        {
+            foreach (var u in units) u.Cheer();
         }
 
         public void SetUnitCount(int n)
@@ -121,7 +131,9 @@ namespace SquadRush
 
             while (units.Count < target)
             {
-                var u = Instantiate(unitPrefab, transform);
+                var prefab = unitPrefabs != null && unitPrefabs.Length > 0 ? unitPrefabs[units.Count % unitPrefabs.Length] : unitPrefab;
+                var u = Instantiate(prefab, transform);
+                u.SetShooting(animShooting);
                 u.transform.localPosition = FormationPos(units.Count, target) + Vector3.back * 1.5f;
                 units.Add(u);
             }
@@ -156,6 +168,12 @@ namespace SquadRush
         void Update()
         {
             var gm = GameManager.Instance;
+            bool shooting = gm != null && gm.State == GameState.Playing;
+            if (shooting != animShooting)
+            {
+                animShooting = shooting;
+                foreach (var u in units) u.SetShooting(shooting);
+            }
             if (gm == null || gm.State != GameState.Playing) return;
 
             HandleInput();
@@ -216,6 +234,7 @@ namespace SquadRush
 
             // Hidden units (beyond the visible cap) still contribute: spread their damage across the visible shooters.
             float dmgPerShot = damage * UnitCount / units.Count;
+            Sfx.Play(SfxId.SquadShot, Mathf.Clamp(0.35f + units.Count * 0.015f, 0.35f, 0.75f), 0.08f);
 
             foreach (var u in units)
             {

@@ -13,6 +13,7 @@ namespace SquadRush.Arena
             public string gunId;
             public Image background;
             public Button selectButton;
+            public Image icon;
             public TMP_Text nameText;
             public TMP_Text stateText;
         }
@@ -32,6 +33,11 @@ namespace SquadRush.Arena
         public TMP_Text scrapText;
         public TMP_Text bestText;
         public GunRow[] gunRows;
+        public Image detailIcon;
+        [Tooltip("Rendered by Tools/blender/process_models.py, ordered like GunLibrary.All.")]
+        public Sprite[] gunIcons;
+        public Button muteButton;
+        public TMP_Text muteLabel;
         public TMP_Text detailName;
         public TMP_Text detailDesc;
         public TMP_Text detailStats;
@@ -85,11 +91,15 @@ namespace SquadRush.Arena
                 r.selectButton.onClick.AddListener(() => ViewGun(r.gunId));
             }
             if (upgradeButton) upgradeButton.onClick.AddListener(OnUpgrade);
+            if (muteButton) muteButton.onClick.AddListener(() => { AudioHub.Muted = !AudioHub.Muted; RefreshMute(); });
             for (int i = 0; i < modRows.Length; i++)
             {
                 int idx = i;
                 modRows[i].buyButton.onClick.AddListener(() => OnBuyMod(idx));
             }
+            foreach (var b in GetComponentsInChildren<Button>(true))
+                b.onClick.AddListener(() => Sfx.Play(SfxId.UiClick, 0.6f, 0f));
+            RefreshMute();
         }
 
         void SetPanels(bool loadout, bool hud, bool levelUp, bool over)
@@ -143,6 +153,7 @@ namespace SquadRush.Arena
                                        : isSelected ? "EQUIPPED  <size=80%>Lv " + MetaProgression.GunLevel(def.Id) + "</size>"
                                        : "<size=80%>Lv " + MetaProgression.GunLevel(def.Id) + "</size>";
                 row.background.color = isSelected ? RowSelected : isViewed ? RowViewed : unlocked ? RowUnlocked : RowLocked;
+                if (row.icon) row.icon.color = unlocked ? Color.white : new Color(0.35f, 0.35f, 0.42f, 1f);
             }
 
             var viewed = GunLibrary.Get(viewedGunId) ?? GunLibrary.Get(GunLibrary.DefaultGunId);
@@ -159,6 +170,12 @@ namespace SquadRush.Arena
             int lvl = MetaProgression.GunLevel(def.Id);
             var stats = GunLibrary.BuildMetaStats(def);
 
+            int iconIdx = GunLibrary.All.IndexOf(def);
+            if (detailIcon && gunIcons != null && iconIdx >= 0 && iconIdx < gunIcons.Length)
+            {
+                detailIcon.sprite = gunIcons[iconIdx];
+                detailIcon.color = unlocked ? Color.white : new Color(0.35f, 0.35f, 0.42f, 1f);
+            }
             if (detailName) detailName.text = def.Name + "  <size=60%>Lv " + lvl + " / " + GunDef.MaxLevel + "</size>";
             if (detailDesc) detailDesc.text = def.Description;
             if (detailStats) detailStats.text = def.StatsLine(stats);
@@ -199,6 +216,11 @@ namespace SquadRush.Arena
             }
         }
 
+        void RefreshMute()
+        {
+            if (muteLabel) muteLabel.text = AudioHub.Muted ? "SOUND OFF" : "SOUND ON";
+        }
+
         void OnUpgrade()
         {
             var def = GunLibrary.Get(viewedGunId);
@@ -207,11 +229,12 @@ namespace SquadRush.Arena
             {
                 if (MetaProgression.TrySpendScrap(def.Cost))
                 {
+                    Sfx.Play(SfxId.Purchase, 0.9f, 0f);
                     MetaProgression.UnlockGun(def.Id);
                     MetaProgression.SelectedGun = def.Id;
                 }
             }
-            else MetaProgression.TryUpgradeGun(def);
+            else if (MetaProgression.TryUpgradeGun(def)) Sfx.Play(SfxId.Purchase, 0.9f, 0f);
             RefreshArmory();
         }
 
@@ -219,7 +242,7 @@ namespace SquadRush.Arena
         {
             var def = GunLibrary.Get(viewedGunId);
             if (def == null || index >= def.Mods.Count) return;
-            MetaProgression.TryBuyMod(def.Mods[index]);
+            if (MetaProgression.TryBuyMod(def.Mods[index])) Sfx.Play(SfxId.Purchase, 0.9f, 0f);
             RefreshArmory();
         }
 

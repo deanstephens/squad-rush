@@ -113,3 +113,6 @@ InitTestScene*.unity*
 /Assets/Captures/
 /Assets/Captures.meta
 /Build/
+
+# Raw downloaded art packs (re-fetch with Tools/fetch_assets.sh)
+/ThirdParty/Source/

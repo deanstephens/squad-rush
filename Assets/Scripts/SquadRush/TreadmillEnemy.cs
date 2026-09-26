@@ -33,9 +33,13 @@ namespace SquadRush
         void OnDisable() => All.Remove(this);
 
         [Header("Wiring")]
+        [Tooltip("Visual root: bobs when there is no Animator.")]
         public Transform body;
-        public Renderer bodyRenderer;
+        public Renderer[] renderers;
+        public Animator animator;
         public TMP_Text label;
+        [Tooltip("Multiplied over the model texture.")]
+        public Color tint = Color.white;
 
         public float MaxHealth { get; private set; }
         public float Health { get; private set; }
@@ -47,14 +51,15 @@ namespace SquadRush
         int coins, scrap;
         float lateralSpeed;
         Color baseColor;
-        Material mat;
         float flashTimer;
         float bob;
         float biteTimer;
         bool dead;
         bool holding;
 
-        static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        static readonly int RunningId = Animator.StringToHash("Running");
+        static readonly int AttackingId = Animator.StringToHash("Attacking");
+        static readonly Color HitFlash = new Color(0.85f, 0.85f, 0.85f);
 
         public void Setup(TreadmillEnemyDef def, float hpMult, float contactUnitsOverride = -1f)
         {
@@ -72,15 +77,20 @@ namespace SquadRush
             if (label != null)
             {
                 label.transform.localScale = Vector3.one / def.Scale;
-                label.transform.localPosition = new Vector3(0f, 1.25f + 0.2f / def.Scale, 0f);
+                label.transform.localPosition = new Vector3(0f, 1.3f + 0.25f / def.Scale, 0f);
             }
 
             var rb = GetComponent<Rigidbody>();
             rb.isKinematic = true;
             rb.useGravity = false;
 
-            mat = bodyRenderer.material;
-            mat.SetColor(BaseColorId, baseColor);
+            RendererTint.Apply(renderers, tint, Color.black);
+            if (animator != null)
+            {
+                animator.SetBool(RunningId, def.WalkSpeed > 2f);
+                animator.speed = Random.Range(0.9f, 1.1f);
+                animator.Play("Walk", 0, Random.value);
+            }
             RefreshLabel();
         }
 
@@ -93,7 +103,7 @@ namespace SquadRush
             if (flashTimer > 0f)
             {
                 flashTimer -= dt;
-                if (flashTimer <= 0f && mat != null) mat.SetColor(BaseColorId, baseColor);
+                if (flashTimer <= 0f) RendererTint.Apply(renderers, tint, Color.black);
             }
 
             if (gm == null || gm.State != GameState.Playing) return;
@@ -107,9 +117,9 @@ namespace SquadRush
                 if (p.z > holdZ)
                 {
                     p.z -= Treadmill.Delta + def.WalkSpeed * dt;
-                    if (p.z <= holdZ) { p.z = holdZ; holding = true; }
+                    if (p.z <= holdZ) { p.z = holdZ; StartHolding(); }
                 }
-                else holding = true;
+                else StartHolding();
             }
             else
             {
@@ -122,7 +132,7 @@ namespace SquadRush
 
             transform.position = p;
 
-            if (body != null)
+            if (animator == null && body != null)
             {
                 float walk = holding ? 0f : Mathf.Abs(Mathf.Sin(Time.time * 10f + bob)) * 0.06f;
                 body.localPosition = new Vector3(0f, 0.55f + walk, 0f);
@@ -134,6 +144,7 @@ namespace SquadRush
                 if (biteTimer <= 0f)
                 {
                     biteTimer = 1.5f;
+                    Sfx.Play(SfxId.BossBite, 1f, 0.05f);
                     squad.TakeHit(Mathf.CeilToInt(contactUnits));
                     Fx.Burst(squad.transform.position + Vector3.up * 0.6f, new Color(1f, 0.3f, 0.3f), 5, 0.14f);
                 }
@@ -146,11 +157,21 @@ namespace SquadRush
         {
             if (dead) return;
             Health -= amount;
+            if (flashTimer <= 0f) RendererTint.Apply(renderers, tint, HitFlash);
             flashTimer = 0.07f;
-            if (mat != null) mat.SetColor(BaseColorId, Color.white);
+            Sfx.Play(SfxId.EnemyHit, 0.3f, 0.15f);
             RefreshLabel();
             if (Health <= 0f) Kill();
         }
+
+        void StartHolding()
+        {
+            if (holding) return;
+            holding = true;
+            if (animator != null) animator.SetBool(AttackingId, true);
+        }
+
+        Vector3 Center => transform.position + Vector3.up * (0.6f * (def != null ? def.Scale : 1f));
 
         void RefreshLabel()
         {
@@ -166,7 +187,8 @@ namespace SquadRush
                 gm.AddCoins(coins);
                 gm.AddScrap(scrap);
             }
-            Fx.Burst(body != null ? body.position : transform.position, baseColor, IsBoss ? 24 : 6, IsBoss ? 0.32f : 0.16f * def.Scale);
+            Sfx.Play(IsBoss ? SfxId.Explosion : SfxId.EnemyDie, IsBoss ? 1f : 0.55f, 0.12f);
+            Fx.Burst(Center, baseColor, IsBoss ? 24 : 6, IsBoss ? 0.32f : 0.16f * def.Scale);
             if (IsBoss && gm != null) gm.OnBossKilled();
             Destroy(gameObject);
         }
@@ -177,13 +199,8 @@ namespace SquadRush
             if (dead || IsBoss) return;
             dead = true;
             squad.TakeHit(Mathf.CeilToInt(contactUnits));
-            Fx.Burst(body != null ? body.position : transform.position, baseColor, 5, 0.14f);
+            Fx.Burst(Center, baseColor, 5, 0.14f);
             Destroy(gameObject);
-        }
-
-        void OnDestroy()
-        {
-            if (mat != null) Destroy(mat);
         }
     }
 }

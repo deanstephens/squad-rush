@@ -39,11 +39,7 @@ namespace SquadRush.EditorTools
             ConfigureProject();
 
             // ---- materials
-            var matUnit = Lit("Unit", new Color(0.25f, 0.6f, 1f));
-            var matUnitDark = Lit("UnitDark", new Color(0.12f, 0.2f, 0.4f));
             var matProjectile = Lit("Projectile", new Color(1f, 0.9f, 0.3f), emissive: new Color(1f, 0.8f, 0.2f) * 1.5f);
-            var matEnemy = Lit("Obstacle", new Color(0.95f, 0.45f, 0.3f));
-            var matEnemyDark = Lit("UnitDark", new Color(0.12f, 0.2f, 0.4f));
             var matGroundA = Lit("GroundA", new Color(0.32f, 0.36f, 0.45f));
             var matGroundB = Lit("GroundB", new Color(0.28f, 0.31f, 0.40f));
             var matRail = Lit("Rail", new Color(0.9f, 0.85f, 0.6f));
@@ -51,9 +47,14 @@ namespace SquadRush.EditorTools
             var matGate = TransparentUnlit("Gate", new Color(0.25f, 0.55f, 1f, 0.55f));
 
             // ---- prefabs
-            var unitPrefab = BuildUnitPrefab(matUnit, matUnitDark);
+            var heroCtrl = ModelKit.HeroController(false);
+            var skelCtrl = ModelKit.SkeletonController();
+            var unitPrefabs = BuildUnitPrefabs(heroCtrl);
             var projectilePrefab = BuildProjectilePrefab(matProjectile);
-            var enemyPrefab = BuildEnemyPrefab(matEnemy, matEnemyDark);
+            var grunt = BuildTreadmillEnemy("TreadmillEnemy_Grunt", "Skeleton_Minion", "Skel_Blade", null, Color.white, skelCtrl);
+            var runner = BuildTreadmillEnemy("TreadmillEnemy_Runner", "Skeleton_Rogue", null, null, new Color(1f, 0.92f, 0.75f), skelCtrl);
+            var tank = BuildTreadmillEnemy("TreadmillEnemy_Tank", "Skeleton_Warrior", "Skel_Axe", "Skel_Shield", Color.white, skelCtrl);
+            var boss = BuildTreadmillEnemy("TreadmillEnemy_Boss", "Skeleton_Mage", "Skel_Staff", null, new Color(0.85f, 0.75f, 1f), skelCtrl);
             var gatePrefab = BuildGatePrefab(matGate);
 
             // ---- scene
@@ -89,18 +90,25 @@ namespace SquadRush.EditorTools
             squadBox.isTrigger = true;
             squadBox.center = new Vector3(0f, 0.6f, 0f);
             squadBox.size = new Vector3(2f, 1.2f, 1f);
-            squad.unitPrefab = unitPrefab;
+            squad.unitPrefab = unitPrefabs[0];
+            squad.unitPrefabs = unitPrefabs;
+            squad.spacing = 0.62f;
             squad.projectilePrefab = projectilePrefab;
             squad.laneHalfWidth = LaneHalfWidth;
 
             var directorGo = new GameObject("LevelDirector");
             var director = directorGo.AddComponent<LevelDirector>();
-            director.enemyPrefab = enemyPrefab;
+            director.enemyPrefab = grunt;
+            director.gruntPrefab = grunt;
+            director.runnerPrefab = runner;
+            director.tankPrefab = tank;
+            director.bossPrefab = boss;
             director.gatePrefab = gatePrefab;
             director.debrisMaterial = matDebris;
             director.laneHalfWidth = LaneHalfWidth;
 
             var ui = BuildUI();
+            ModelKit.AudioHubFor("music_run");
 
             var gmGo = new GameObject("GameManager");
             var gm = gmGo.AddComponent<GameManager>();
@@ -126,6 +134,7 @@ namespace SquadRush.EditorTools
         [MenuItem("SquadRush/Build All Scenes")]
         public static void BuildAll()
         {
+            ModelKit.RebuildControllers();
             Build();
             ArenaSceneBuilder.BuildArena();
             RegisterScenes();
@@ -225,22 +234,21 @@ namespace SquadRush.EditorTools
             return saved.GetComponent<T>();
         }
 
-        static Unit BuildUnitPrefab(Material body, Material dark)
+        static Unit[] BuildUnitPrefabs(RuntimeAnimatorController controller)
         {
-            var root = new GameObject("Unit");
-            var unit = root.AddComponent<Unit>();
-
-            var visual = Primitive(PrimitiveType.Capsule, "Visual", root.transform, new Vector3(0f, 0.28f, 0f), new Vector3(0.34f, 0.28f, 0.34f), body, false);
-            Primitive(PrimitiveType.Cube, "Gun", visual.transform, new Vector3(0.45f, 0.3f, 0.9f), new Vector3(0.3f, 0.35f, 0.9f), dark, false);
-            Primitive(PrimitiveType.Sphere, "Visor", visual.transform, new Vector3(0f, 1.05f, 0.6f), new Vector3(0.6f, 0.35f, 0.6f), dark, false);
-
-            var fire = new GameObject("FirePoint").transform;
-            fire.SetParent(root.transform, false);
-            fire.localPosition = new Vector3(0f, 0.45f, 0.35f);
-
-            unit.visual = visual.transform;
-            unit.firePoint = fire;
-            return SavePrefab<Unit>(root, "Unit");
+            string[] heroes = { "Hero_Knight", "Hero_Barbarian", "Hero_Rogue", "Hero_Mage" };
+            var result = new Unit[heroes.Length];
+            for (int i = 0; i < heroes.Length; i++)
+            {
+                var root = new GameObject("Unit_" + heroes[i]);
+                var unit = root.AddComponent<Unit>();
+                var model = ModelKit.Character(heroes[i], root.transform, 0.95f, controller);
+                unit.firePoint = ModelKit.AttachGun(model, "pistol", 1.25f);
+                unit.visual = model.transform.parent;
+                unit.animator = model.GetComponent<Animator>();
+                result[i] = SavePrefab<Unit>(root, "Unit_" + heroes[i]);
+            }
+            return result;
         }
 
         static Projectile BuildProjectilePrefab(Material mat)
@@ -250,20 +258,29 @@ namespace SquadRush.EditorTools
             return SavePrefab<Projectile>(go, "Projectile");
         }
 
-        internal static TreadmillEnemy BuildEnemyPrefab(Material mat, Material dark)
+        static TreadmillEnemy BuildTreadmillEnemy(string name, string model, string rightHand, string leftHand, Color tint, RuntimeAnimatorController controller)
         {
-            var root = new GameObject("TreadmillEnemy");
+            var root = new GameObject(name);
             var rb = root.AddComponent<Rigidbody>();
             rb.isKinematic = true;
             rb.useGravity = false;
+            var col = root.AddComponent<CapsuleCollider>();
+            col.center = new Vector3(0f, 0.55f, 0f);
+            col.radius = 0.42f;
+            col.height = 1.1f;
             var enemy = root.AddComponent<TreadmillEnemy>();
 
-            var body = Primitive(PrimitiveType.Capsule, "Body", root.transform, new Vector3(0f, 0.55f, 0f), new Vector3(0.8f, 0.55f, 0.8f), mat, true);
-            Primitive(PrimitiveType.Cube, "Eye", body.transform, new Vector3(0f, 0.5f, -0.45f), new Vector3(0.55f, 0.18f, 0.25f), dark, false);
-            enemy.body = body.transform;
-            enemy.bodyRenderer = body.GetComponent<Renderer>();
+            var m = ModelKit.Character(model, root.transform, 1.1f, controller);
+            m.transform.parent.localRotation = Quaternion.Euler(0f, 180f, 0f);   // walk toward the squad (-Z)
+            if (rightHand != null) ModelKit.AttachProp(m, rightHand, "handslot.r");
+            if (leftHand != null) ModelKit.AttachProp(m, leftHand, "handslot.l");
+
+            enemy.body = m.transform.parent;
+            enemy.renderers = ModelKit.ModelRenderers(root);
+            enemy.animator = m.GetComponent<Animator>();
+            enemy.tint = tint;
             enemy.label = WorldLabel(root.transform, new Vector3(0f, 1.45f, 0f), 4f);
-            return SavePrefab<TreadmillEnemy>(root, "TreadmillEnemy");
+            return SavePrefab<TreadmillEnemy>(root, name);
         }
 
         static PowerUpGate BuildGatePrefab(Material mat)
@@ -361,6 +378,8 @@ namespace SquadRush.EditorTools
             }
             ui.playButton = Btn(menu.transform, "Play", "PLAY", new Vector2(0.5f, 0f), new Vector2(0f, 300f), new Vector2(760f, 170f), Green, 84f, out _);
             ui.arenaButton = Btn(menu.transform, "Arena", "ARENA MODE", new Vector2(0.5f, 0f), new Vector2(0f, 130f), new Vector2(760f, 130f), Purple, 56f, out _);
+            ui.muteButton = Btn(menu.transform, "Mute", "SOUND ON", new Vector2(1f, 1f), new Vector2(-140f, -70f), new Vector2(240f, 80f), Grey, 30f, out var muteLabel);
+            ui.muteLabel = muteLabel;
 
             // ---- Game over
             var over = Panel(root, "GameOver", new Color(0.16f, 0.03f, 0.06f, 0.9f));

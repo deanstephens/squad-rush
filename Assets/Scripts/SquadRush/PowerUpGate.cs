@@ -95,6 +95,7 @@ namespace SquadRush
         {
             if (collected) return;
             collected = true;
+            Sfx.Play(IsPositive ? SfxId.GateGood : SfxId.GateBad, 0.9f, 0.03f);
 
             switch (Type)
             {

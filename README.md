@@ -44,6 +44,31 @@ Guns, their mods and their run perks are all defined in `GunLibrary`; the mechan
 `ArenaBullet` and `Enemy`. Enemies are in `EnemyLibrary`; generic level-up options in
 `ArenaUpgrades`. Wave pacing, sizes and boss timing live on the `EnemySpawner` scene object.
 
+## Art and audio pipeline
+
+Models come from CC0 packs (see `CREDITS.md`). Raw packs are not committed; they are fetched
+into `ThirdParty/Source/` and processed by Blender into game-ready files under `Assets/Art/`.
+
+```
+Tools/fetch_assets.sh                                           # download KayKit + Kenney packs
+/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup \
+    --python Tools/blender/process_models.py                    # characters, clips, guns, props, icons
+python3 Tools/audio/generate_sfx.py                             # all sound effects + music loops
+```
+
+`process_models.py` joins each character into one skinned mesh (one draw call), keeps the
+deform bones plus the hand slots, exports two shared clip libraries (heroes, skeletons) that
+drive every character through the common rig, exports guns and skeleton weapons as single
+meshes, and renders the Armory gun icons. Unity import settings live in
+`Assets/Editor/SquadRush/ArtImportRules.cs`; `ModelKit.cs` builds materials, animator
+controllers and character/gun prefabs. **SquadRush ▸ Art Preview Scene** lays everything out
+for a quick visual check. **SquadRush ▸ Build All Scenes** regenerates controllers, prefabs and
+both scenes.
+
+`generate_sfx.py` is a small seeded sfxr-style synth (standard library only), so re-running it
+reproduces the same files. Sounds play through `AudioHub` / `Sfx.Play`, which pools voices,
+rate-limits each clip and handles music and the persisted mute toggle.
+
 ## Project layout
 
 | Path | What |
@@ -54,7 +79,10 @@ Guns, their mods and their run perks are all defined in `GunLibrary`; the mechan
 | `Assets/Scripts/SquadRush/` | Runtime gameplay code (see below). |
 | `Assets/Editor/SquadRush/SceneBuilder.cs` | Rebuilds materials, prefabs, scene and UI from primitives. Menu: **SquadRush ▸ Build Game Scene**. Re-running overwrites `Game.unity`. |
 | `Assets/Editor/SquadRush/Bootstrap.cs` | Headless TextMeshPro essentials import used during project setup. |
-| `Assets/Prefabs/` | `Unit`, `Projectile`, `Obstacle`, `Gate` prefabs. |
+| `Assets/Prefabs/` | Generated prefabs: hero units, treadmill and arena skeleton enemies, projectiles, gates, gems. |
+| `Assets/Art/` | Processed models (`Models/`), textures, materials, animator controllers and gun icons. |
+| `Assets/Audio/` | Generated sound effects (`Sfx/`) and music loops (`Music/`). |
+| `Tools/` | `fetch_assets.sh`, Blender processing scripts and the audio synthesiser. |
 | `Assets/Materials/` | URP materials used by the builder. |
 
 ## Runtime scripts

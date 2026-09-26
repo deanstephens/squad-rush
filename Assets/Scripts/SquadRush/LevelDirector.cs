@@ -10,6 +10,10 @@ namespace SquadRush
     {
         [Header("Prefabs")]
         public TreadmillEnemy enemyPrefab;
+        public TreadmillEnemy gruntPrefab;
+        public TreadmillEnemy runnerPrefab;
+        public TreadmillEnemy tankPrefab;
+        public TreadmillEnemy bossPrefab;
         public PowerUpGate gatePrefab;
         public Material debrisMaterial;
 
@@ -151,14 +155,25 @@ namespace SquadRush
         void SpawnBoss()
         {
             BossSpawned = true;
+            Sfx.Play(SfxId.BossSpawn, 1f, 0f);
             float hpMult = 1f + (Level - 1) * bossHpPerLevel;
             float bite = TreadmillEnemyLibrary.Boss.ContactUnits + bossBitePerLevel * (Level - 1);
             Spawn(new Vector3(0f, 0f, spawnZ), TreadmillEnemyLibrary.Boss, hpMult, bite);
         }
 
+        TreadmillEnemy PrefabFor(TreadmillEnemyDef def)
+        {
+            TreadmillEnemy p = null;
+            if (def == TreadmillEnemyLibrary.Grunt) p = gruntPrefab;
+            else if (def == TreadmillEnemyLibrary.Runner) p = runnerPrefab;
+            else if (def == TreadmillEnemyLibrary.Tank) p = tankPrefab;
+            else if (def == TreadmillEnemyLibrary.Boss) p = bossPrefab;
+            return p != null ? p : enemyPrefab;
+        }
+
         void Spawn(Vector3 pos, TreadmillEnemyDef def, float hpMult, float contactOverride = -1f)
         {
-            var e = Instantiate(enemyPrefab, pos, Quaternion.identity, root);
+            var e = Instantiate(PrefabFor(def), pos, Quaternion.identity, root);
             e.Setup(def, hpMult, contactOverride);
         }
 

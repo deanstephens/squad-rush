@@ -25,7 +25,8 @@ namespace SquadRush.Arena
     {
         public static readonly List<Enemy> All = new List<Enemy>();
 
-        public Renderer bodyRenderer;
+        public Renderer[] renderers;
+        public Animator animator;
 
         public float Radius { get; private set; } = 0.45f;
         public bool Dead { get; private set; }
@@ -42,8 +43,10 @@ namespace SquadRush.Arena
         Rigidbody rb;
         ArenaPlayer player;
 
-        static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
-        static MaterialPropertyBlock mpb;
+        static readonly int RunningId = Animator.StringToHash("Running");
+        static readonly Color HitFlash = new Color(0.8f, 0.8f, 0.8f);
+        static readonly Color BurnFlash = new Color(0.9f, 0.4f, 0.05f);
+        Color CurrentTint => enraged ? EnragedTint : Color.white;
 
         public void Setup(EnemyDef def, float hpMult, ArenaPlayer player)
         {
@@ -63,7 +66,13 @@ namespace SquadRush.Arena
             rb = GetComponent<Rigidbody>();
             rb.mass = def.Scale * def.Scale;
 
-            SetColor(def.Color);
+            RendererTint.Apply(renderers, Color.white, Color.black);
+            if (animator != null)
+            {
+                animator.SetBool(RunningId, def.Speed > 4f);
+                animator.speed = Random.Range(0.9f, 1.1f);
+                animator.Play("Walk", 0, Random.value);
+            }
         }
 
         void OnEnable() => All.Add(this);
@@ -93,7 +102,7 @@ namespace SquadRush.Arena
             if (flashTimer > 0f)
             {
                 flashTimer -= Time.deltaTime;
-                if (flashTimer <= 0f) SetColor(enraged ? EnragedColor : def.Color);
+                if (flashTimer <= 0f) RendererTint.Apply(renderers, CurrentTint, Color.black);
             }
 
             var am = ArenaManager.Instance;
@@ -109,7 +118,7 @@ namespace SquadRush.Arena
                 {
                     burnTick = 0.25f;
                     hp -= burnDps * 0.25f;
-                    SetColor(new Color(1f, 0.5f, 0.1f));
+                    RendererTint.Apply(renderers, CurrentTint, BurnFlash);
                     flashTimer = 0.08f;
                     if (hp <= 0f) { Die(); return; }
                 }
@@ -132,12 +141,14 @@ namespace SquadRush.Arena
         {
             if (Dead) return;
             hp -= amount;
+            if (flashTimer <= 0f) RendererTint.Apply(renderers, CurrentTint, HitFlash);
             flashTimer = 0.06f;
-            SetColor(Color.white);
+            Sfx.Play(SfxId.EnemyHit, 0.25f, 0.15f);
             if (hp <= 0f) Die();
         }
 
         static readonly Color EnragedColor = new Color(0.9f, 0.1f, 0.1f);
+        static readonly Color EnragedTint = new Color(1f, 0.45f, 0.45f);
 
         /// <summary>Boss timeout: faster, twice the bite, and unmistakably red.</summary>
         public void Enrage()
@@ -146,7 +157,9 @@ namespace SquadRush.Arena
             enraged = true;
             speed *= 1.6f;
             contactDamage *= 2f;
-            SetColor(EnragedColor);
+            RendererTint.Apply(renderers, EnragedTint, Color.black);
+            if (animator != null) animator.speed = 1.5f;
+            Sfx.Play(SfxId.Enrage, 1f, 0f);
             Fx.Burst(transform.position + Vector3.up * 1f, EnragedColor, 16, 0.25f);
         }
 
@@ -179,16 +192,9 @@ namespace SquadRush.Arena
                 am.OnEnemyKilled(def.Coins);
                 am.SpawnGem(transform.position, def.Xp);
             }
+            Sfx.Play(def.Scale > 2f ? SfxId.Explosion : SfxId.EnemyDie, def.Scale > 2f ? 1f : 0.5f, 0.12f);
             Fx.Burst(transform.position + Vector3.up * 0.4f, def.Color, def.Scale > 1.5f ? 14 : 5, 0.16f * def.Scale);
             Destroy(gameObject);
-        }
-
-        void SetColor(Color c)
-        {
-            if (bodyRenderer == null) return;
-            if (mpb == null) mpb = new MaterialPropertyBlock();
-            mpb.SetColor(BaseColorId, c);
-            bodyRenderer.SetPropertyBlock(mpb);
         }
 
         // ---------------------------------------------------------------- queries

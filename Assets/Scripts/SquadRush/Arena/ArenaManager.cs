@@ -130,6 +130,7 @@ namespace SquadRush.Arena
                 offered = ArenaUpgrades.RollThree(this);
                 State = ArenaState.LevelUp;
                 Time.timeScale = 0f;
+                Sfx.Play(SfxId.LevelUp, 1f, 0f);
                 ui.ShowLevelUp(offered);
             }
             ui.UpdateHud();
@@ -139,6 +140,7 @@ namespace SquadRush.Arena
         {
             if (State != ArenaState.LevelUp || offered == null || index < 0 || index >= offered.Length) return;
             var u = offered[index];
+            Sfx.Play(SfxId.PerkPick, 0.9f, 0f);
             u.Apply(this);
             taken[u.Id] = TimesTaken(u.Id) + 1;
             offered = null;
@@ -154,6 +156,7 @@ namespace SquadRush.Arena
             if (State == ArenaState.GameOver) return;
             State = ArenaState.GameOver;
             Time.timeScale = 1f;
+            Sfx.Play(SfxId.GameOver, 1f, 0f);
 
             MetaProgression.AddCoins(CoinsThisRun);
             MetaProgression.RecordArenaTime(TimeSurvived);

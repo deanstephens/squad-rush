@@ -13,8 +13,15 @@ namespace SquadRush.Arena
     {
         [Header("Wiring")]
         public Transform visual;
-        public Renderer bodyRenderer;
-        public GameObject gunVisualPrefab;
+        public Renderer[] renderers;
+        public Animator animator;
+        public RuntimeAnimatorController oneHandedController;
+        public RuntimeAnimatorController twoHandedController;
+        [Tooltip("Gun models already sitting in the right hand, parallel arrays keyed by GunLibrary id. Only the equipped one is enabled.")]
+        public string[] gunIds;
+        public GameObject[] gunModels;
+        public Transform[] gunMuzzles;
+        public bool[] gunTwoHanded;
         public float arenaHalfSize = 29f;
 
         [Header("Stats (run-time)")]
@@ -44,8 +51,9 @@ namespace SquadRush.Arena
         float invulnTimer;
         Vector3 facing = Vector3.forward;
 
-        static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
-        static readonly Color BodyColor = new Color(0.3f, 0.65f, 1f);
+        static readonly int SpeedId = Animator.StringToHash("Speed");
+        static readonly int ShootingId = Animator.StringToHash("Shooting");
+        static readonly Color HurtFlash = new Color(1f, 0.25f, 0.2f);
 
         void Awake()
         {
@@ -58,38 +66,50 @@ namespace SquadRush.Arena
         {
             if (Gun != null) Destroy(Gun.gameObject);
 
-            var go = gunVisualPrefab != null ? Instantiate(gunVisualPrefab, transform) : new GameObject("Gun");
-            go.name = "Gun_" + def.Id;
-            go.transform.SetParent(transform, false);
-            go.transform.localPosition = new Vector3(0.28f, 0.55f, 0.4f);
-
-            var gun = go.GetComponent<Gun>();
-            if (gun == null) gun = go.AddComponent<Gun>();
-            gun.Init(def, stats, this, go.transform.Find("Muzzle"));
-
-            var tip = go.transform.Find("Tip");
-            if (tip != null)
+            Transform muzzle = null;
+            bool twoHanded = true;
+            for (int i = 0; gunModels != null && i < gunModels.Length; i++)
             {
-                var r = tip.GetComponent<Renderer>();
-                if (r != null)
+                bool on = gunIds[i] == def.Id;
+                if (gunModels[i] != null) gunModels[i].SetActive(on);
+                if (on)
                 {
-                    var mpb = new MaterialPropertyBlock();
-                    mpb.SetColor(BaseColorId, def.Color);
-                    r.SetPropertyBlock(mpb);
+                    muzzle = gunMuzzles[i];
+                    twoHanded = gunTwoHanded[i];
                 }
             }
-            Gun = gun;
+            if (animator != null)
+            {
+                var ctrl = twoHanded ? twoHandedController : oneHandedController;
+                if (ctrl != null) animator.runtimeAnimatorController = ctrl;
+            }
+
+            // Firing logic lives on its own object at the player's root; the model only supplies the muzzle.
+            var logic = new GameObject("GunLogic_" + def.Id);
+            logic.transform.SetParent(transform, false);
+            logic.transform.localPosition = Vector3.up * 0.6f;
+            Gun = logic.AddComponent<Gun>();
+            Gun.Init(def, stats, this, muzzle);
         }
 
         void Update()
         {
             var am = ArenaManager.Instance;
-            if (am == null || am.State != ArenaState.Playing) return;
+            if (am == null || am.State != ArenaState.Playing)
+            {
+                if (animator != null && am != null && am.State != ArenaState.LevelUp)
+                {
+                    animator.SetFloat(SpeedId, 0f);
+                    animator.SetBool(ShootingId, false);
+                }
+                return;
+            }
 
             float dt = Time.deltaTime;
             Vector2 move = ReadMove();
+            bool moving = move.sqrMagnitude > 0.01f;
 
-            if (move.sqrMagnitude > 0.0001f)
+            if (moving)
             {
                 Vector3 delta = new Vector3(move.x, 0f, move.y) * (moveSpeed * dt);
                 Vector3 p = transform.position + delta;
@@ -100,8 +120,23 @@ namespace SquadRush.Arena
                 facing = new Vector3(move.x, 0f, move.y).normalized;
             }
 
+            // Standing still: face the target so the shooting pose lines up. Moving: face where we run.
+            var target = Gun != null ? Gun.Target : null;
+            if (!moving && target != null)
+            {
+                Vector3 to = target.transform.position - transform.position;
+                to.y = 0f;
+                if (to.sqrMagnitude > 0.01f) facing = to.normalized;
+            }
+
             if (visual != null)
                 visual.rotation = Quaternion.Slerp(visual.rotation, Quaternion.LookRotation(facing, Vector3.up), 1f - Mathf.Exp(-14f * dt));
+
+            if (animator != null)
+            {
+                animator.SetFloat(SpeedId, moving ? move.magnitude : 0f);
+                animator.SetBool(ShootingId, target != null);
+            }
 
             if (regenPerSecond > 0f && hp < maxHp)
             {
@@ -113,7 +148,7 @@ namespace SquadRush.Arena
             if (flashTimer > 0f)
             {
                 flashTimer -= dt;
-                if (flashTimer <= 0f) SetColor(BodyColor);
+                if (flashTimer <= 0f) RendererTint.Apply(renderers, Color.white, Color.black);
             }
         }
 
@@ -159,8 +194,9 @@ namespace SquadRush.Arena
             if (am == null || am.State != ArenaState.Playing || invulnTimer > 0f) return;
             invulnTimer = hitInvulnerability;
             hp -= amount * damageTakenMult;
-            flashTimer = 0.1f;
-            SetColor(Color.white);
+            flashTimer = 0.12f;
+            RendererTint.Apply(renderers, Color.white, HurtFlash);
+            Sfx.Play(SfxId.PlayerHurt, 0.8f);
             am.NotifyHud();
             if (hp <= 0f)
             {
@@ -173,14 +209,6 @@ namespace SquadRush.Arena
         {
             hp = Mathf.Min(maxHp, hp + amount);
             ArenaManager.Instance?.NotifyHud();
-        }
-
-        void SetColor(Color c)
-        {
-            if (bodyRenderer == null) return;
-            var mpb = new MaterialPropertyBlock();
-            mpb.SetColor(BaseColorId, c);
-            bodyRenderer.SetPropertyBlock(mpb);
         }
     }
 }

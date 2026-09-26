@@ -19,9 +19,13 @@ namespace SquadRush.Arena
     public class EnemySpawner : MonoBehaviour
     {
         public Enemy enemyPrefab;
+        public Enemy gruntPrefab;
+        public Enemy runnerPrefab;
+        public Enemy brutePrefab;
+        public Enemy elitePrefab;
         public float spawnRadius = 19f;
         public float arenaHalfSize = 29f;
-        public int maxAlive = 220;
+        public int maxAlive = 140;
 
         [Header("Waves")]
         public float firstCountdown = 3f;
@@ -113,6 +117,7 @@ namespace SquadRush.Arena
             if (n % bossEvery == 0)
             {
                 Phase = WavePhase.Boss;
+                Sfx.Play(SfxId.BossHorn, 1f, 0f);
                 int bossIndex = n / bossEvery;
                 float bossMult = waveHpMult * (1f + (bossIndex - 1) * bossHpPerBoss);
                 CurrentBoss = SpawnOne(EnemyLibrary.Elite, bossMult);
@@ -121,12 +126,14 @@ namespace SquadRush.Arena
             }
 
             Phase = WavePhase.Active;
+            Sfx.Play(SfxId.WaveStart, 0.8f, 0f);
             int size = baseWaveSize + (n - 1) * sizePerWave;
             for (int i = 0; i < size; i++) spawnQueue.Enqueue(RollType(n));
         }
 
         void EndWave()
         {
+            if (Remaining == 0) Sfx.Play(SfxId.WaveClear, 0.8f, 0f);
             Phase = WavePhase.Countdown;
             PhaseTimer = betweenWaves;
             spawnQueue.Clear();
@@ -150,6 +157,16 @@ namespace SquadRush.Arena
             return EnemyLibrary.Grunt;
         }
 
+        Enemy PrefabFor(EnemyDef def)
+        {
+            Enemy p = null;
+            if (def == EnemyLibrary.Grunt) p = gruntPrefab;
+            else if (def == EnemyLibrary.Runner) p = runnerPrefab;
+            else if (def == EnemyLibrary.Brute) p = brutePrefab;
+            else if (def == EnemyLibrary.Elite) p = elitePrefab;
+            return p != null ? p : enemyPrefab;
+        }
+
         Enemy SpawnOne(EnemyDef def, float hpMult)
         {
             if (Enemy.All.Count >= maxAlive) return null;
@@ -160,7 +177,7 @@ namespace SquadRush.Arena
             pos.z = Mathf.Clamp(pos.z, -arenaHalfSize, arenaHalfSize);
             pos.y = 0f;
 
-            var e = Instantiate(enemyPrefab, pos, Quaternion.identity, root);
+            var e = Instantiate(PrefabFor(def), pos, Quaternion.identity, root);
             e.Setup(def, hpMult, player);
             return e;
         }

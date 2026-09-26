@@ -23,6 +23,8 @@ namespace SquadRush
         public TMP_Text bankText;
         public Button playButton;
         public Button arenaButton;
+        public Button muteButton;
+        public TMP_Text muteLabel;
         public Button[] upgradeButtons;
         public TMP_Text[] upgradeLabels;
 
@@ -53,6 +55,10 @@ namespace SquadRush
             if (menuButton) menuButton.onClick.AddListener(() => GameManager.Instance.BackToMenu());
             if (arenaButton) arenaButton.onClick.AddListener(() => GameManager.Instance.OpenArena());
             if (nextLevelButton) nextLevelButton.onClick.AddListener(() => GameManager.Instance.ContinueToNextLevel());
+            if (muteButton) muteButton.onClick.AddListener(() => { AudioHub.Muted = !AudioHub.Muted; RefreshMute(); });
+            foreach (var b in GetComponentsInChildren<Button>(true))
+                b.onClick.AddListener(() => Sfx.Play(SfxId.UiClick, 0.6f, 0f));
+            RefreshMute();
             if (clearMenuButton) clearMenuButton.onClick.AddListener(() => GameManager.Instance.BackToMenu());
 
             for (int i = 0; i < upgradeButtons.Length; i++)
@@ -153,10 +159,18 @@ namespace SquadRush
             GameManager.Instance.ChoosePerk(offered[idx]);
         }
 
+        void RefreshMute()
+        {
+            if (muteLabel) muteLabel.text = AudioHub.Muted ? "SOUND OFF" : "SOUND ON";
+        }
+
         void Buy(UpgradeType t)
         {
             if (MetaProgression.TryBuy(t))
+            {
+                Sfx.Play(SfxId.Purchase, 0.9f, 0f);
                 GameManager.Instance.squad.ApplyMeta();
+            }
             RefreshShop();
         }
 

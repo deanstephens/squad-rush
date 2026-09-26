@@ -118,6 +118,8 @@ namespace SquadRush
             MetaProgression.CurrentLevel = Level + 1;
 
             director.ClearLane();
+            squad.Cheer();
+            Sfx.Play(SfxId.LevelClear, 1f, 0f);
             ui.ShowLevelClear(Level, coins, scrap);
         }
 
@@ -133,6 +135,7 @@ namespace SquadRush
         public void ChoosePerk(Perk perk)
         {
             if (State != GameState.PerkChoice) return;
+            Sfx.Play(SfxId.PerkPick, 0.9f, 0f);
             perk.Apply(this);
             squad.NotifyChanged();
             Time.timeScale = 1f;
@@ -149,6 +152,7 @@ namespace SquadRush
         {
             if (State == GameState.GameOver) return;
             State = GameState.GameOver;
+            Sfx.Play(SfxId.GameOver, 1f, 0f);
             Treadmill.Running = false;
             Time.timeScale = 1f;
 
