@@ -44,6 +44,20 @@ Guns, their mods and their run perks are all defined in `GunLibrary`; the mechan
 `ArenaBullet` and `Enemy`. Enemies are in `EnemyLibrary`; generic level-up options in
 `ArenaUpgrades`. Wave pacing, sizes and boss timing live on the `EnemySpawner` scene object.
 
+## Playing on your local network
+
+Serve the current web build to phones and other computers on the same network:
+
+```
+python3 Tools/serve_web.py            # prints http://<this-mac-ip>:8000/ and a .local name
+python3 Tools/serve_web.py --port 9000
+```
+
+It serves `Build/Web` (rebuild with **SquadRush ▸ Build Web** first), sends `application/wasm`
+for the binary, adds `Content-Encoding` if compressed build files are ever used, and disables
+caching so devices always load the latest build. It picks the next free port if 8000 is taken.
+Saves live in the browser per address, so keep using the same URL on a device to keep progress.
+
 ## Art and audio pipeline
 
 Models come from CC0 packs (see `CREDITS.md`). Raw packs are not committed; they are fetched
